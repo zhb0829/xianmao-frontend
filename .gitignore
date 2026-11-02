@@ -1,0 +1,15 @@
+.idea/
+.vscode/
+*.iml
+target/
+build/
+node_modules/
+dist/
+.DS_Store
+.env
+
+# 大体积素材图（壁纸 / 手机模型，代码中无任何引用，不入库）
+src/material/img/
+
+# 下载中断产生的临时文件
+*.dltmp
