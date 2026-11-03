@@ -136,7 +136,7 @@ npm run preview
 | Vue Router 4 | 13 条路由、动态 import、全局登录守卫 |
 | Pinia 2 | 状态管理：`userStore`（登录态/权限）、`collectStore`（收藏集合） |
 | Axios | HTTP 请求；`src/api/request.js` 统一封装并把请求交给内置 Mock |
-| 浏览器内置 Mock | `src/mock`：47 个接口、内存状态、演示图片转 base64 |
+| 浏览器内置 Mock | `src/mock`：47 个接口、localStorage 持久化、演示图片转 base64 |
 | ECharts 5.3 | 数据可视化（管理端分类占比饼图） |
 | Animate.css | 过渡动画 |
 | 自研设计系统（styles/cl.css） | 统一色板、排版与组件样式 |
@@ -158,7 +158,7 @@ npm run preview
 │       ├── api/localStore.js         # 求购 / 校园圈本地数据层
 │       ├── mock/                     # 浏览器内置 Mock
 │       │   ├── index.js              # 请求分发：解析路径、参数、FormData、错误
-│       │   ├── routes.js             # 47 个接口与内存状态
+│       │   ├── routes.js             # 47 个接口与持久化状态
 │       │   ├── data.js               # 演示种子数据
 │       │   └── images.js             # public/demo 图片转 base64（带缓存）
 │       ├── stores/                   # Pinia：user.js、collect.js
@@ -175,7 +175,9 @@ npm run preview
 
 - 请求由 `src/api/request.js` 的自定义 adapter 接管，不发出真实网络请求；`src/mock/index.js` 按路径匹配 47 个接口。
 - 演示图片位于 `public/demo`，Mock 启动时通过 `images.js` 读成 base64（带缓存），因此详情页、发布页的图片逻辑与真实接口一致。
-- 数据保存在**浏览器内存**：同一页面内切换账号（登录/退出）数据共享；**刷新页面会重置为初始数据**。
+- 数据保存在浏览器内存，并**自动持久化到 localStorage**（`xm:mock-state:v1`）：**刷新页面数据保留**，同一页面内切换账号也共享。
+- 存储空间不足时（例如上传了大量图片）自动降级：商品文字数据保留、上传的图片可能不保留，控制台会提示。
+- 需要恢复初始演示数据：控制台执行 `window.__xmResetMock()`，或清除浏览器 localStorage 后刷新。
 - 控制台调试：`window.__xmHttp({ method: 'get', url: '/commodity/getCommodity' })`，或 `window.__xmRouter.push('/welcome')`。
 - 接口返回格式与真实后端一致（直接返回业务数据本身，不包 `{code,msg,data}`），后续若接真实后端，只需把 adapter 换成 `axios` 默认 adaptor 并配置 baseURL。
 
@@ -201,9 +203,9 @@ npm run preview
 
 ## 常见问题
 
-- **刷新后数据变了？** Mock 状态在浏览器内存里，刷新会回到初始数据；答辩时在同一个页面内完成演示即可。
+- **刷新后数据还在吗？** 在。Mock 状态会自动保存到 localStorage，刷新保留；需要回到初始数据时执行 `window.__xmResetMock()`。
 - **图片不显示？** 确认 `public/demo` 存在；构建产物中对应 `dist/demo`。
-- **换浏览器/清缓存后登录还在吗？** 登录态存在 `localStorage`，Mock 数据不持久化。
+- **换浏览器/清缓存后登录还在吗？** 登录态与 Mock 数据都存在 `localStorage`，换浏览器或清缓存会回到初始数据。
 - **能否接真实后端？** 可以：把 `src/api/request.js` 里的自定义 adapter 去掉、恢复 `baseURL` 即可，页面无需改动。
 
 ## 团队
