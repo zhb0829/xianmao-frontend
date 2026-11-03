@@ -131,6 +131,8 @@
 </template>
 
 <script>
+import { useUserStore } from '../stores/user'
+
 export default {
   name: 'login',
   data() {
@@ -183,7 +185,8 @@ export default {
         .then(res => {
           this.regIsLoading = false;
           this.permitClick = true;
-          localStorage.setItem('token', res.data.token);
+          // 登录态统一写入 Pinia（内部同步 token 到请求层与 localStorage）
+          useUserStore().setLogin(res.data);
           this.$emit('login', res.data);
         })
         .catch(err => {

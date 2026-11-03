@@ -157,6 +157,7 @@
 import goodsDetail from '../components/goodsDetail.vue'
 import siteHeader from '../components/siteHeader.vue'
 import siteFooter from '../components/siteFooter.vue'
+import { useCollectStore } from '../stores/collect'
 
 export default {
   name: 'shop',
@@ -226,46 +227,25 @@ export default {
   },
   methods: {
     openGoodsDetail(item) {
-      this.goodsOpen = 1
-      this.goodsData.id = item.goodsId
-      this.goodsData.name = item.goodsName
-      this.goodsData.price = item.goodsPrice
-      this.goodsData.likes = item.goodsLikes
-      this.goodsData.imgL = []
-      this.goodsData.imgL.push(item.goodsImg)
+      // 商品详情改为独立路由页：可单独分享链接、刷新保持、也能被首页卡片直达
+      this.$router.push(`/goods/${item.goodsId}`)
     },
     closeDetail() {
-      this.goodsOpen = 0
+      this.goodsOpen = 0;
     },
-    collect(id) {
-      this.$http({
-        method: 'get',
-        url: 'shop/collectAdd',
-        params: { commodityId: id },
-      })
-        .then(res => {
-          if (res.data == false) {
-            for (let i = 0; i < this.goodsList.length; i++) {
-              if (this.goodsList[i].goodsId == id) {
-                this.goodsList[i].likeCount = this.goodsList[i].likeCount - 1
-                this.goodsList[i].likeStatus = false
-              }
-            }
-            this.$emit('showmsg', { info: '取消收藏', colorType: 3 })
-          }
-          if (res.data == true) {
-            for (let i = 0; i < this.goodsList.length; i++) {
-              if (this.goodsList[i].goodsId == id) {
-                this.goodsList[i].likeCount = this.goodsList[i].likeCount + 1
-                this.goodsList[i].likeStatus = true
-              }
-            }
-            this.$emit('showmsg', { info: '加入收藏', colorType: 1 })
-          }
-        })
-        .catch(() => {
-          this.$emit('showmsg', { info: '收藏失败', colorType: 3 })
-        })
+    // 收藏状态由 Pinia 的 collectStore 统一维护，其他页面同步更新
+    async collect(id) {
+      try {
+        const { on, count } = await useCollectStore().toggle(id)
+        const row = this.goodsList.find(g => g.goodsId == id)
+        if (row) {
+          row.likeStatus = on
+          row.likeCount = count
+        }
+        this.$emit('showmsg', { info: on ? '加入收藏' : '取消收藏', colorType: on ? 1 : 3 })
+      } catch (e) {
+        this.$emit('showmsg', { info: '收藏失败', colorType: 3 })
+      }
     },
     // index 4/5 分别代表价格、时间排序
     fliter(item, index) {

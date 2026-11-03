@@ -6,6 +6,7 @@
 
 import p1 from '../assets/cl/img/p1.jpg'
 import library from '../assets/cl/img/hero-campus.jpg'
+import { getToken } from './request.js'
 
 const NS = 'cl:'
 
@@ -35,15 +36,16 @@ export function uid(prefix = 'id') {
 }
 
 // 当前账号标识：演示模式 token 形如 mock-token-demo-1234，真实后端是 JWT
+// token 统一由请求层（src/api/request.js）维护，这里只读
 export function currentOwner() {
-  const token = localStorage.getItem('token') || ''
+  const token = getToken()
   const mock = /^mock-token-([a-zA-Z0-9]+)-\d+$/.exec(token)
   if (mock) return mock[1]
   return token ? `u_${token.slice(-8)}` : 'guest'
 }
 
 export function hasToken() {
-  return !!localStorage.getItem('token')
+  return !!getToken()
 }
 
 // ---------------- 求购 ----------------

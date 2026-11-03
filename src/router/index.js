@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useUserStore } from '../stores/user'
 
 // 开启历史模式
 // vue2中使用的mode：history 实现
@@ -20,7 +21,6 @@ const router = createRouter({
         {
             path:'/welcome',
             component: () => import('../pages/welcome.vue'),
-            // component: resolve => require(['../pages/welcome.vue'], resolve),
             meta:{
                 need_login: false,
                 index: 1
@@ -33,7 +33,34 @@ const router = createRouter({
                 need_login: false,
                 index: 2
             },
-        },   
+        },
+        {
+            // 登录 / 注册独立页面
+            path:'/login',
+            component: () => import('../pages/login.vue'),
+            meta:{
+                need_login: false,
+                index: 1
+            }
+        },
+        {
+            // 发布闲置独立页面（需要登录）
+            path:'/publish',
+            component: () => import('../pages/publish.vue'),
+            meta:{
+                need_login: true,
+                index: 2
+            }
+        },
+        {
+            // 商品详情独立页面
+            path:'/goods/:id',
+            component: () => import('../pages/goods.vue'),
+            meta:{
+                need_login: false,
+                index: 2
+            }
+        },
         {
             path:'/customer',
             component: () => import('../pages/person.vue'),
@@ -66,5 +93,12 @@ const router = createRouter({
     ]
 })
 
+// 全局前置守卫：需要登录的页面直接跳登录页，并带上回跳地址
+router.beforeEach(to => {
+    if (!to.meta || !to.meta.need_login) return true
+    const userStore = useUserStore()
+    if (userStore.isLogged) return true
+    return { path: '/login', query: { redirect: to.fullPath } }
+})
 
 export default router

@@ -35,6 +35,16 @@ export const state = {
   liked: new Map([[1001, new Set([1, 3, 5])]]),
   // 商品收藏数（含别人的收藏）
   likeCount: new Map(seedGoods.map(g => [g.id, 3 + (g.id % 7)])),
+  // 商品留言：作者可以是任何账号，商品 10 / 12 的卖家是 demo，
+  // 因此演示账号在「个人中心-消息留言」能看到收到的留言
+  comments: [
+    { id: 1, commodityId: 10, authorId: 2001, authorName: '张同学', content: '零食大礼包还能便宜点吗？我就在东校园。', time: '2026-11-01 09:20' },
+    { id: 2, commodityId: 10, authorId: 2002, authorName: '李同学', content: '还在吗？今晚可以当面拿，现金或转账都行。', time: '2026-11-01 12:02' },
+    { id: 3, commodityId: 12, authorId: 2003, authorName: '王同学', content: '明天下午有货吗？想订一个，低糖的最好。', time: '2026-11-02 08:45' },
+    { id: 4, commodityId: 1, authorId: 1001, authorName: '演示同学', content: '能小刀吗？6000 可以的话我今晚面交。', time: '2026-11-02 15:10' },
+    { id: 5, commodityId: 14, authorId: 1001, authorName: '演示同学', content: '冰箱用了多久？压缩机声音大不大？', time: '2026-11-02 19:33' },
+  ],
+  nextCommentId: 100,
   nextGoodsId: 100,
   nextOrderId: 10000,
   nextUserId: 3000,
@@ -234,8 +244,13 @@ export function createRoutes() {
       price: good.price,
       description: good.description,
       sellerId: good.sellerId,
+      sellerName: good.sellerName,
+      sellerAvatar: readAvatar(),
+      // 卖家在售件数（详情页卖家卡片展示）
+      listingCount: state.goods.filter(g => g.sellerId === good.sellerId && g.status === GOODS_STATUS.PASS).length,
       shippingAddress: good.shippingAddress,
       category: good.category,
+      time: good.time,
       slideShow: slideShowOf(good),
     }
   })
@@ -285,6 +300,63 @@ export function createRoutes() {
     // 所有用户的收藏里都移除该商品
     for (const set of state.liked.values()) set.delete(id)
     state.likeCount.delete(id)
+    return true
+  })
+
+  // 编辑商品：只允许卖家本人（或管理员），编辑后重新进入审核队列
+  add('POST', '/commodity/updateCommodityInfo', ctx => {
+    const id = Number(val(ctx, 'commodityId', 'commodityID', 'id'))
+    const good = findGoods(id)
+    if (!good) fail('商品不存在')
+    const user = userOf(ctx)
+    if (good.sellerId !== user.id && user.authority !== 1) fail('只能编辑自己发布的商品', 403)
+
+    const name = String(val(ctx, 'tradeName', 'tradename') || '').trim()
+    if (!name) fail('商品名称不能为空', 400)
+    good.tradeName = name.slice(0, 30)
+    good.price = Number(val(ctx, 'price')) || good.price
+    good.category = val(ctx, 'category') || good.category
+    good.description = val(ctx, 'description') || ''
+    good.shippingAddress = val(ctx, 'shippingAddress', 'shippingaddress') || ''
+
+    const cover = stripDataUri(val(ctx, 'firstPhoto', 'firstphoto'))
+    if (cover) {
+      const rest = (good.photos || []).slice(1)
+      good.photos = [cover, ...rest]
+    }
+
+    // 轮播图：前端以 JSON 字符串提交 data URI 数组
+    const rawSlides = ctx.body.slideShow
+    if (typeof rawSlides === 'string' && rawSlides) {
+      try {
+        const arr = JSON.parse(rawSlides)
+        const slides = (Array.isArray(arr) ? arr : []).map(stripDataUri).filter(Boolean)
+        const first = good.photos && good.photos.length ? good.photos[0] : cover
+        good.photos = [...(first ? [first] : []), ...slides].slice(0, 6)
+      } catch {
+        /* 忽略非法 JSON */
+      }
+    }
+
+    // 编辑后重新审核，符合「发布-审核-上架」的业务口径
+    good.status = GOODS_STATUS.PENDING
+    good.time = nowStr()
+    return { commodityId: id, status: good.status }
+  })
+
+  // 卖家自己下架（保留记录，只在管理端与「我发布的」可见）
+  add('GET', '/commodity/offline', ctx => {
+    const good = findGoods(val(ctx, 'commodityId', 'commodityID', 'id'))
+    if (!good) fail('商品不存在')
+    good.status = GOODS_STATUS.OFFLINE
+    return true
+  })
+
+  // 卖家重新上架（演示直接回到「通过」，真实后端可改为重新审核）
+  add('GET', '/commodity/online', ctx => {
+    const good = findGoods(val(ctx, 'commodityId', 'commodityID', 'id'))
+    if (!good) fail('商品不存在')
+    good.status = GOODS_STATUS.PASS
     return true
   })
 
@@ -491,6 +563,50 @@ export function createRoutes() {
       state.likeCount.set(id, Math.max(0, goodsCount(id) - 1))
     }
     return true
+  })
+
+  // ---------- 留言 ----------
+  // 商品详情页的留言板：按商品查、登录后新增
+  add('GET', '/comment/list', ctx => {
+    const id = Number(val(ctx, 'commodityId', 'commodityID', 'id'))
+    return state.comments
+      .filter(c => c.commodityId === id)
+      .sort((a, b) => b.id - a.id)
+  })
+
+  add('POST', '/comment/add', ctx => {
+    const id = Number(val(ctx, 'commodityId', 'commodityID', 'id'))
+    if (!findGoods(id)) fail('商品不存在')
+    const content = String(val(ctx, 'content') || '').trim()
+    if (!content) fail('留言内容不能为空', 400)
+    if (content.length > 200) fail('留言最多 200 字', 400)
+    const user = userOf(ctx)
+    const item = {
+      id: state.nextCommentId++,
+      commodityId: id,
+      authorId: user.id,
+      authorName: user.nickname || '同学',
+      content,
+      time: nowStr(),
+    }
+    state.comments.push(item)
+    return item
+  })
+
+  // 个人中心「消息留言」：我收到的（我发布的商品下的留言）+ 我发出的
+  add('GET', '/comment/mine', ctx => {
+    const user = userOf(ctx)
+    const received = []
+    const sent = []
+    for (const c of state.comments) {
+      const good = findGoods(c.commodityId)
+      const row = { ...c, goodsName: good ? good.tradeName : '已删除商品' }
+      if (good && good.sellerId === user.id) received.push(row)
+      if (c.authorId === user.id) sent.push(row)
+    }
+    received.sort((a, b) => b.id - a.id)
+    sent.sort((a, b) => b.id - a.id)
+    return { received, sent }
   })
 
   // ---------- 管理端 ----------

@@ -147,8 +147,8 @@
       <!-- ============ 3 确认提交 ============ -->
       <div v-else-if="active === 2" class="panel" key="confirm">
         <div class="panel-head">
-          <h3>确认发布信息</h3>
-          <p>提交后进入管理员审核，审核通过即在商品市场展示</p>
+          <h3>{{ isEdit ? '确认修改内容' : '确认发布信息' }}</h3>
+          <p>{{ isEdit ? '保存后商品会重新进入审核队列，审核通过才恢复展示' : '提交后进入管理员审核，审核通过即在商品市场展示' }}</p>
         </div>
 
         <div class="confirm">
@@ -177,7 +177,7 @@
         <div class="actions">
           <button class="btn-ghost" @click="prev">上一步</button>
           <button class="btn-brand" :disabled="submitting" @click="submit">
-            {{ submitting ? '提交中…' : '确认发布' }}
+            {{ submitting ? '提交中…' : isEdit ? '保存修改' : '确认发布' }}
           </button>
         </div>
       </div>
@@ -185,11 +185,12 @@
       <!-- ============ 4 提交成功 ============ -->
       <div v-else class="panel done" key="done">
         <span class="done-check">✓</span>
-        <h3>已提交，等待审核</h3>
-        <p>管理员审核通过后，商品会出现在「商品市场」与「我的闲置 · 在售」中。</p>
+        <h3>{{ isEdit ? '已保存，等待重新审核' : '已提交，等待审核' }}</h3>
+        <p v-if="isEdit">修改后的商品会重新进入审核队列，审核通过后在商品市场恢复展示。</p>
+        <p v-else>管理员审核通过后，商品会出现在「商品市场」与「我的闲置 · 在售」中。</p>
         <div class="actions center">
-          <button class="btn-ghost" @click="resetAll">再发布一件</button>
-          <button class="btn-brand" @click="finish">查看我的闲置</button>
+          <button v-if="!isEdit" class="btn-ghost" @click="resetAll">再发布一件</button>
+          <button class="btn-brand" @click="finish">{{ isEdit ? '返回我的闲置' : '查看我的闲置' }}</button>
         </div>
       </div>
     </Transition>
@@ -199,7 +200,11 @@
 <script>
 export default {
   name: 'publish',
-  props: ['userid'],
+  props: {
+    userid: { type: [Number, String], default: 0 },
+    // 编辑模式：传入商品 id 时回填表单并调用更新接口
+    editId: { type: [Number, String], default: 0 },
+  },
   data() {
     return {
       steps: ['商品信息', '上传展示图片', '确认提交'],
@@ -208,6 +213,7 @@ export default {
       imgString: '',
       slides: [],
       submitting: false,
+      loadingEdit: false,
       ruleForm: {
         TradeName: '',
         Price: '',
@@ -226,10 +232,41 @@ export default {
       },
     };
   },
+  computed: {
+    isEdit() {
+      return Number(this.editId) > 0;
+    },
+  },
   mounted() {
     this.getCategories();
+    if (this.isEdit) this.loadForEdit();
   },
   methods: {
+    // 编辑模式：回填商品信息与图片
+    loadForEdit() {
+      this.loadingEdit = true;
+      this.$http({ method: 'post', url: '/commodity/queryCommodity', params: { commodityId: Number(this.editId) } })
+        .then(res => {
+          const info = res.data || {};
+          this.ruleForm.TradeName = info.tradeName || '';
+          this.ruleForm.Price = info.price != undefined ? String(info.price) : '';
+          this.ruleForm.Category = info.category || '';
+          this.ruleForm.Description = info.description || '';
+          this.ruleForm.ShippingAddress = info.shippingAddress || '';
+          const list = Array.isArray(info.slideShow) ? info.slideShow : [];
+          if (list.length) {
+            const pre = 'data:image/Jpeg;base64,';
+            this.ruleForm.FirstPhoto = 1;
+            this.imgString = pre + list[0];
+            this.slides = list.map(b => pre + b);
+          }
+          this.loadingEdit = false;
+        })
+        .catch(err => {
+          this.loadingEdit = false;
+          this.$emit('showmsg', { info: (err && err.friendly) || '商品信息加载失败', colorType: 3 });
+        });
+    },
     getCategories() {
       this.$http({ url: '/category/getAllCategories', method: 'get' })
         .then(res => {
@@ -369,6 +406,35 @@ export default {
       if (this.active !== 2 || this.submitting) return;
       if (!this.validateInfo()) {
         this.active = 0;
+        return;
+      }
+
+      // 编辑模式：调用更新接口，保存后重新进入审核
+      if (this.isEdit) {
+        const data = new FormData();
+        data.append('commodityId', Number(this.editId));
+        data.append('tradeName', this.ruleForm.TradeName);
+        data.append('price', this.ruleForm.Price);
+        data.append('firstPhoto', this.imgString);
+        data.append('shippingAddress', this.ruleForm.ShippingAddress);
+        data.append('description', this.ruleForm.Description);
+        data.append('category', this.ruleForm.Category);
+        // 封面已单独传，轮播图里去掉重复的封面
+        const slides = this.slides.filter(s => s !== this.imgString);
+        data.append('slideShow', JSON.stringify(slides));
+
+        this.submitting = true;
+        this.$http({ method: 'post', url: '/commodity/updateCommodityInfo', data })
+          .then(() => {
+            this.submitting = false;
+            this.active = 3;
+            this.$emit('showmsg', { info: '修改已保存，等待重新审核', colorType: 1 });
+            this.$emit('refresh');
+          })
+          .catch(err => {
+            this.submitting = false;
+            this.$emit('showmsg', { info: (err && err.friendly) || '保存失败，请稍后重试', colorType: 3 });
+          });
         return;
       }
 

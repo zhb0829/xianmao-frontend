@@ -17,7 +17,7 @@
           </div>
 
           <div class="head-actions">
-            <button class="head-btn" aria-label="消息" @click="notify('暂无新消息')">
+            <button class="head-btn" aria-label="消息" @click="openTab(10)">
               <span v-html="ICON.message"></span>
             </button>
             <button class="head-btn" aria-label="设置" @click="openTab(4)">
@@ -263,7 +263,7 @@
 
         <div class="sub-body" :class="{ legacy: tab >= 6 }">
           <status
-            v-if="tab >= 6"
+            v-if="tab >= 6 && tab <= 9"
             ref="statusRef"
             :personData="person"
             :activeList="statusTab"
@@ -271,6 +271,12 @@
             @refresh="loadAll"
             v-bind="$attrs"
           ></status>
+
+          <messages
+            v-else-if="tab === 10"
+            @open-goods="gopenById"
+            @showmsg="notifyMsg"
+          ></messages>
 
           <publish v-else-if="tab === 2" @refresh="loadAll" @done="backToOverview" v-bind="$attrs"></publish>
 
@@ -303,8 +309,11 @@ import login from '../components/login.vue';
 import goodsDetail from '../components/goodsDetail.vue';
 import publish from '../components/publish.vue';
 import manage from '../components/manage.vue';
+import messages from '../components/messages.vue';
 import siteHeader from '../components/siteHeader.vue';
 import siteFooter from '../components/siteFooter.vue';
+import { useUserStore } from '../stores/user';
+import { useCollectStore } from '../stores/collect';
 
 // 线性图标（内联 SVG，颜色跟随 currentColor）
 const svg = d =>
@@ -474,7 +483,7 @@ export default {
           label: '消息通知',
           note: '已开启',
           icon: ICON.bell,
-          action: () => this.notify('消息通知已开启'),
+          action: () => this.openTab(10),
         },
         {
           key: 'address',
@@ -525,6 +534,7 @@ export default {
         7: '我买到的',
         8: '我卖出的',
         9: '我发布的',
+        10: '消息留言',
       };
       return map[this.tab] || '个人中心';
     },
@@ -538,6 +548,7 @@ export default {
         7: '待付款、待收货与已完成订单',
         8: '已经卖出的闲置与订单状态',
         9: '在售、已售、草稿与已下架的闲置',
+        10: '买家与卖家给你的留言，都在这里',
       };
       return map[this.tab] || '';
     },
@@ -551,7 +562,7 @@ export default {
   watch: {
     tab(newVal) {
       // 进入列表子页后，同步 status 内部当前列表（含 /customer?tab=6 直达）
-      if (newVal >= 6) {
+      if (newVal >= 6 && newVal <= 9) {
         this.$nextTick(() => {
           const ref = this.$refs.statusRef;
           if (ref && typeof ref.switchList === 'function') ref.switchList(this.statusTab);
@@ -566,8 +577,8 @@ export default {
     '$route.query.tab'(value) {
       if (!this.logged) return;
       const t = Number(value) || 0;
-      if (t >= 2 && t <= 9) {
-        if (t >= 6) this.statusTab = t - 5;
+      if (t >= 2 && t <= 10) {
+        if (t >= 6 && t <= 9) this.statusTab = t - 5;
         this.tab = t;
       } else {
         this.tab = 1;
@@ -577,8 +588,9 @@ export default {
   methods: {
     // ---------- 登录态 ----------
     tokenVerify() {
-      const t = localStorage.getItem('token');
-      if (t != null) {
+      // 登录态统一从 Pinia 读取，localStorage 只作为持久化介质
+      const userStore = useUserStore();
+      if (userStore.isLogged) {
         this.logged = true;
         this.tab = this.wantTab || 1;
         this.loadAll();
@@ -596,6 +608,8 @@ export default {
         this.person.authority = this.person.authorityCode === 1 ? '管理用户' : '普通用户';
       }
       this.loadAll();
+      // 登录后同步收藏集合，市场/详情/收藏页共用
+      useCollectStore().fetchMine().catch(() => {});
     },
     exit(res) {
       if (res === 'exit') {
@@ -603,7 +617,8 @@ export default {
         this.tab = 0;
         this.person.authorityCode = 0;
         this.person.authority = '';
-        localStorage.removeItem('token');
+        useUserStore().logout();
+        useCollectStore().$reset();
         this.$emit('showmsg', { info: '已退出登录', colorType: 1 });
       }
     },
@@ -627,12 +642,14 @@ export default {
           this.person.authorityCode = Number(p.authority) || 0;
           this.person.authority = this.person.authorityCode === 1 ? '管理用户' : '普通用户';
           this.avatarOk = true;
+          // 同步到 Pinia，页面头部等位置可共用昵称/头像/权限
+          useUserStore().setProfile(p);
         })
         .catch(() => {
           this.logged = false;
           this.tab = 0;
           this.person.authorityCode = 0;
-          localStorage.removeItem('token');
+          useUserStore().logout();
           this.$emit('showmsg', { info: '登录已失效，请重新登录', colorType: 3 });
         });
     },
@@ -755,7 +772,7 @@ export default {
         this.notify('需要管理员权限');
         return;
       }
-      if (id >= 6) this.statusTab = id - 5;
+      if (id >= 6 && id <= 9) this.statusTab = id - 5;
       this.tab = id;
       this.wantTab = 0;
       this.syncRoute(id);
@@ -784,6 +801,13 @@ export default {
     notify(info) {
       this.$emit('showmsg', { info, colorType: 1 });
     },
+    // 消息留言里点「查看商品」→ 独立商品详情页
+    gopenById(id) {
+      this.$router.push(`/goods/${id}`);
+    },
+    notifyMsg(msg) {
+      this.$emit('showmsg', msg);
+    },
 
     // ---------- 商品详情 ----------
     gopen(data) {
@@ -803,6 +827,7 @@ export default {
     login,
     publish,
     manage,
+    messages,
     siteHeader,
     siteFooter,
     goodsDetail,

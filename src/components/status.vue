@@ -30,13 +30,27 @@
             <button v-if="indx === 1" class="op-btn danger" @click="dislikeGoods(item, index)">
               取消收藏
             </button>
-            <button
-              v-else-if="item.status === '通过'"
-              class="op-btn danger"
-              @click="deleteGoods(item, index)"
-            >
-              下架
-            </button>
+
+            <!-- 我发布的：编辑 / 下架 / 上架 -->
+            <template v-else-if="indx === 4">
+              <button v-if="item.status !== '已售出'" class="op-btn" @click="editGoods(item)">
+                编辑
+              </button>
+              <button
+                v-if="item.status === '通过'"
+                class="op-btn danger"
+                @click="offlineGoods(item)"
+              >
+                下架
+              </button>
+              <button
+                v-else-if="item.status === '下架'"
+                class="op-btn primary"
+                @click="onlineGoods(item)"
+              >
+                上架
+              </button>
+            </template>
           </div>
         </div>
       </div>
@@ -261,6 +275,34 @@ export default {
         })
         .catch(() => {
           this.$emit('showmsg', { info: '下架失败', colorType: 3 });
+        });
+    },
+    // 编辑：跳独立的发布页（复用同一套表单，带 edit 参数回填）
+    editGoods(item) {
+      this.$router.push({ path: '/publish', query: { edit: item.id } });
+    },
+    // 卖家下架：改状态而不是删除记录，「我发布的」里仍可看到并可重新上架
+    offlineGoods(item) {
+      this.$http({ method: 'get', url: '/commodity/offline', params: { commodityId: item.id } })
+        .then(() => {
+          item.status = '下架';
+          this.$emit('showmsg', { info: '已下架，可在「已下架」里重新上架', colorType: 1 });
+          this.$emit('refresh');
+        })
+        .catch(err => {
+          this.$emit('showmsg', { info: (err && err.friendly) || '下架失败', colorType: 3 });
+        });
+    },
+    // 重新上架
+    onlineGoods(item) {
+      this.$http({ method: 'get', url: '/commodity/online', params: { commodityId: item.id } })
+        .then(() => {
+          item.status = '通过';
+          this.$emit('showmsg', { info: '已重新上架，商品市场可见', colorType: 1 });
+          this.$emit('refresh');
+        })
+        .catch(err => {
+          this.$emit('showmsg', { info: (err && err.friendly) || '上架失败', colorType: 3 });
         });
     },
     dislikeGoods(item) {

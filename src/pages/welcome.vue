@@ -20,7 +20,7 @@
               </p>
               <div class="hero-actions">
                 <button class="btn-primary" @click="go('/shop')">开始逛逛</button>
-                <button class="btn-ghost" @click="go('/customer?tab=2')">一键发布闲置</button>
+                <button class="btn-ghost" @click="go('/publish')">一键发布闲置</button>
               </div>
               <ul class="hero-trust">
                 <li>校内自提</li>
@@ -37,7 +37,7 @@
                 <img class="publish-spark" :src="ico.sparkles" alt="" />
               </div>
               <p class="publish-desc">拍照自动识别品类与建议价，同校同学第一时间看到。</p>
-              <button class="publish-btn" @click="go('/customer?tab=2')">
+              <button class="publish-btn" @click="go('/publish')">
                 <img :src="ico.cameraWhite" alt="" />
                 立即发布
               </button>
@@ -138,7 +138,25 @@
             </div>
           </div>
 
-          <div class="goods-grid">
+          <!-- 加载骨架：接口请求中 -->
+          <div v-if="goodsLoading" class="goods-grid">
+            <article v-for="n in 8" :key="'sk' + n" class="goods-card is-skeleton">
+              <div class="goods-cover skeleton-cover"></div>
+              <div class="goods-body">
+                <span class="skeleton-line w-70"></span>
+                <span class="skeleton-line w-40"></span>
+                <span class="skeleton-line w-55"></span>
+              </div>
+            </article>
+          </div>
+
+          <!-- 接口失败：给出错误与重试，而不是静默展示假数据 -->
+          <div v-else-if="goodsError" class="goods-empty">
+            <p>{{ goodsError }}</p>
+            <button class="load-more-link" @click="loadGoods">重新加载</button>
+          </div>
+
+          <div v-else class="goods-grid">
             <article
               v-for="(item, index) in visibleGoods"
               :key="item.id"
@@ -147,15 +165,16 @@
               @click="openGoods(item)"
             >
               <div class="goods-cover">
-                <span class="goods-flag">{{ item.tag }}</span>
-                <img class="goods-img" :src="item.img" :alt="item.name" loading="lazy" />
+                <span v-if="item.tag" class="goods-flag">{{ item.tag }}</span>
+                <img v-if="item.img" class="goods-img" :src="item.img" :alt="item.name" loading="lazy" />
+                <span v-else class="goods-img goods-img-empty">暂无图片</span>
               </div>
               <div class="goods-body">
                 <h3 class="goods-name">{{ item.name }}</h3>
                 <div class="goods-price-row">
                   <span class="goods-yen">¥</span>
                   <span class="goods-price">{{ money(item.price) }}</span>
-                  <span class="goods-old">原价 {{ money(item.old) }}</span>
+                  <span v-if="item.old" class="goods-old">原价 {{ money(item.old) }}</span>
                 </div>
                 <div class="goods-meta">
                   <span class="goods-pick">{{ item.pick }}</span>
@@ -171,7 +190,7 @@
             </article>
           </div>
 
-          <button class="load-more" @click="loadMore">
+          <button v-if="!goodsLoading && !goodsError && filteredGoods.length" class="load-more" @click="loadMore">
             <span>已展示 {{ visibleCount }} / {{ filteredGoods.length }} 件在售闲置</span>
             <span class="load-more-link">{{ expanded ? '收起商品' : '加载更多商品' }}</span>
           </button>
@@ -241,7 +260,7 @@
           </div>
           <div class="cta-action">
             <p class="cta-ask">还没有账号？</p>
-            <button class="cta-btn" @click="go('/customer')">用学号登录</button>
+            <button class="cta-btn" @click="go('/login')">用学号登录</button>
           </div>
         </div>
       </section>
@@ -256,6 +275,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import siteHeader from '../components/siteHeader.vue'
 import siteFooter from '../components/siteFooter.vue'
+import http from '../api/request.js'
 
 const router = useRouter()
 
@@ -304,8 +324,8 @@ function money(n) {
 }
 
 function openGoods(item) {
-  // 首页卡片是运营精选，进入商品市场后由同学自己继续浏览
-  router.push({ path: '/shop' })
+  // 首页卡片直接进入独立商品详情页 /goods/:id
+  router.push(`/goods/${item.id}`)
 }
 
 /** 演示用的发布时间文案，按商品 id 稳定取值 */
@@ -341,7 +361,8 @@ const cats = [
 ]
 
 /* ---------------- 商品 ---------------- */
-const goods = [
+// 离线兜底数据：仅当 Mock / 后端都不可用且接口报错时展示
+const fallbackGoods = [
   {
     id: 101, name: '《深入理解计算机系统》第三版 八成新', price: 48, old: 139,
     tag: '今天发布', pick: '自提', loc: '计算机学院 · 九成新', seller: '林同学', img: img.p1, hot: 1,
@@ -392,6 +413,69 @@ const goods = [
   },
 ]
 
+/* ---------------- 商品（接口数据） ---------------- */
+// 首页推荐位从 /commodity/getCommodity 拉取，不再写死商品数组；
+// fallbackGoods 只在接口完全不可用时兜底，避免答辩现场白屏。
+const goods = ref([])
+const goodsLoading = ref(true)
+const goodsError = ref('')
+
+const PICK_LABELS = ['可面交', '校园自提', '包邮寄']
+
+function normalizeGood(g, index) {
+  return {
+    id: g.id,
+    name: g.tradeName || '未命名商品',
+    price: Number(g.price) || 0,
+    old: Number(g.originPrice) || 0,
+    tag: index === 0 ? '热门推荐' : '',
+    pick: PICK_LABELS[index % PICK_LABELS.length],
+    loc: '校园自提',
+    seller: g.sellerName || '同学',
+    img: '',
+    hot: index,
+    likeCount: 0,
+  }
+}
+
+async function loadGoods() {
+  goodsLoading.value = true
+  goodsError.value = ''
+  try {
+    const res = await http({
+      method: 'get',
+      url: '/commodity/getCommodity',
+      params: { currentPage: 1, pageSize: 12, timeFlag: 0, status: '' },
+    })
+    const records = res.data && Array.isArray(res.data.records) ? res.data.records : []
+    if (!records.length) throw new Error('暂无在售商品')
+    goods.value = records.map(normalizeGood)
+
+    // 图片与收藏数按商品补齐：单个失败不影响整页
+    await Promise.all(
+      goods.value.map(async item => {
+        try {
+          const r = await http({ method: 'get', url: '/commodity/getFirstPhoto', params: { commodityId: item.id } })
+          if (typeof r.data === 'string' && r.data.length > 20) item.img = 'data:image/Jpeg;base64,' + r.data
+        } catch {
+          /* 图片失败留空占位 */
+        }
+        try {
+          const c = await http({ method: 'get', url: '/commodity/getCount', params: { commodityId: item.id } })
+          item.likeCount = Number(c.data && c.data.likeCount) || 0
+        } catch {
+          /* 收藏数失败按 0 */
+        }
+      }),
+    )
+  } catch (e) {
+    goodsError.value = (e && (e.friendly || e.message)) || '接口请求失败'
+    goods.value = fallbackGoods
+  } finally {
+    goodsLoading.value = false
+  }
+}
+
 /* ---------------- 排序 / 筛选 ---------------- */
 const sorts = [
   { key: 'default', name: '综合排序' },
@@ -406,9 +490,9 @@ const filterType = ref('')
 
 const filters = [
   { label: '全部', value: '' },
-  { label: '可面交', value: '可面交' },
-  { label: '仅限自提', value: '仅限自提' },
-  { label: '包邮寄', value: '包邮寄' },
+  { label: '100 元以内', value: 'lt100' },
+  { label: '100–500 元', value: 'mid' },
+  { label: '500 元以上', value: 'gt500' },
 ]
 
 function pickFilter(value) {
@@ -417,15 +501,17 @@ function pickFilter(value) {
 }
 
 const filteredGoods = computed(() => {
-  let list = goods.slice()
-  if (filterType.value) list = list.filter(g => g.pick === filterType.value)
+  let list = goods.value.slice()
+  if (filterType.value === 'lt100') list = list.filter(g => g.price < 100)
+  else if (filterType.value === 'mid') list = list.filter(g => g.price >= 100 && g.price <= 500)
+  else if (filterType.value === 'gt500') list = list.filter(g => g.price > 500)
 
   if (sortKey.value === 'new') {
-    list.sort((a, b) => Number(b.tag === '今天发布') - Number(a.tag === '今天发布'))
+    list.sort((a, b) => Number(b.id) - Number(a.id))
   } else if (sortKey.value === 'price') {
     list.sort((a, b) => a.price - b.price)
   } else if (sortKey.value === 'near') {
-    list.sort((a, b) => a.hot - b.hot)
+    list.sort((a, b) => Number(b.likeCount) - Number(a.likeCount))
   }
   return list
 })
@@ -459,6 +545,9 @@ const teamCards = [
 
 /* ---------------- 入场动画 ---------------- */
 onMounted(() => {
+  // 首屏商品走接口：Mock 模式下由 /api 中间件返回，真实后端同理
+  loadGoods()
+
   const targets = document.querySelectorAll('.hero-card, .cat-card, .goods-card, .guarantee-card, .flip-card')
 
   const showAll = () => targets.forEach(el => el.classList.add('in-view'))
@@ -1621,5 +1710,52 @@ onMounted(() => {
   .section-title {
     font-size: 20px;
   }
+}
+
+/* ============ 接口加载态 / 空态 ============ */
+.goods-img-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cl-surface-alt, #f2f4f3);
+  color: var(--cl-muted, #8a948f);
+  font-size: 12px;
+}
+
+.is-skeleton {
+  pointer-events: none;
+}
+
+.skeleton-cover {
+  background: linear-gradient(90deg, #eef1ef 25%, #e2e7e4 37%, #eef1ef 63%);
+  background-size: 400% 100%;
+  animation: sk-loading 1.4s ease infinite;
+}
+
+.skeleton-line {
+  display: block;
+  height: 12px;
+  margin: 10px 0;
+  border-radius: 6px;
+  background: #eef1ef;
+}
+
+.w-70 { width: 70%; }
+.w-40 { width: 40%; }
+.w-55 { width: 55%; }
+
+.goods-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 0;
+  color: #5b6661;
+  font-size: 14px;
+}
+
+@keyframes sk-loading {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
 }
 </style>

@@ -7,6 +7,7 @@
         <nav class="ticker-links">
           <a @click="go('/customer?tab=7')">我的订单</a>
           <a @click="go('/shop')">全部商品</a>
+          <a @click="go('/login')">登录 / 注册</a>
           <a @click="scrollToGuarantee">交易保障</a>
         </nav>
       </div>
@@ -51,12 +52,12 @@
           <button class="search-btn" type="submit">搜索</button>
         </form>
 
-        <button class="publish" @click="go('/customer?tab=2')">
+        <button class="publish" @click="go('/publish')">
           <img :src="ico.plus" alt="" />
           <span>发布闲置</span>
         </button>
 
-        <button class="avatar" @click="go('/customer')" aria-label="个人中心">
+        <button class="avatar" @click="go(userStore.isLogged ? '/customer' : '/login')" aria-label="个人中心">
           <img :src="ico.user" alt="" />
         </button>
 
@@ -76,12 +77,15 @@
 <script setup>
 import { onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '../stores/user'
 
 const props = defineProps({
   active: { type: String, default: 'home' },
 })
 
 const router = useRouter()
+// 登录态来自 Pinia：未登录点头像去登录页，已登录进个人中心
+const userStore = useUserStore()
 const keyword = ref('')
 const menuOpen = ref(false)
 // 未上线入口的点击反馈

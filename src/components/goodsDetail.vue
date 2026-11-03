@@ -1,6 +1,6 @@
 <template>
-  <div class="gd-layer">
-    <div class="gd-mask" @click="close()"></div>
+  <div class="gd-layer" :class="{ standalone }">
+    <div v-if="!standalone" class="gd-mask" @click="close()"></div>
 
     <div class="gd-dialog" role="dialog" aria-modal="true">
       <button class="gd-close" aria-label="关闭" @click="close()">
@@ -41,6 +41,17 @@
 
             <p class="gd-desc">{{ goodsData.description }}</p>
 
+            <!-- 卖家信息：校园认证标识 + 在售件数 -->
+            <div class="gd-seller">
+              <img v-if="seller.avatar" class="gd-seller-avatar" :src="seller.avatar" alt="" />
+              <span v-else class="gd-seller-avatar gd-seller-avatar-empty">卖</span>
+              <div class="gd-seller-main">
+                <p class="gd-seller-name">{{ seller.name }}</p>
+                <p class="gd-seller-meta">校园认证卖家 · 在售 {{ seller.listing || 0 }} 件</p>
+              </div>
+              <span class="gd-seller-tag">实名</span>
+            </div>
+
             <div class="gd-foot">
               <button class="gd-like" :class="{ on: goodsData.likeStatus }" @click="collect(goodsData.id)">
                 <span class="gd-ico" v-html="goodsData.likeStatus ? ICON.heartSolid : ICON.heart"></span>
@@ -53,6 +64,41 @@
               </button>
             </div>
           </div>
+
+          <!-- 留言板：详情页内与卖家/同学交流 -->
+          <section class="gd-comments">
+            <header class="gd-comments-head">
+              <h3>留言 <b>{{ comments.length }}</b></h3>
+              <p>问成色、问配件、约面交，都在这里说</p>
+            </header>
+
+            <form v-if="canComment" class="gd-comment-form" @submit.prevent="submitComment">
+              <input
+                v-model="commentText"
+                class="gd-comment-input"
+                maxlength="200"
+                placeholder="想问什么？例如：能小刀吗 / 配件齐全吗 / 今晚能面交吗"
+              />
+              <button class="gd-comment-send" type="submit" :disabled="!commentText.trim() || commentSending">
+                {{ commentSending ? '发送中…' : '发送留言' }}
+              </button>
+            </form>
+            <p v-else class="gd-comment-login">
+              登录后即可留言　<button type="button" @click="goLogin">去登录</button>
+            </p>
+
+            <ul class="gd-comment-list">
+              <li v-for="c in comments" :key="c.id" class="gd-comment-item">
+                <div class="gd-comment-head">
+                  <span class="gd-comment-avatar">{{ (c.authorName || '同学').slice(0, 1) }}</span>
+                  <b class="gd-comment-name">{{ c.authorName }}</b>
+                  <time class="gd-comment-time">{{ c.time }}</time>
+                </div>
+                <p class="gd-comment-body">{{ c.content }}</p>
+              </li>
+              <li v-if="!comments.length" class="gd-comment-empty">还没有留言，来问第一句吧</li>
+            </ul>
+          </section>
         </div>
 
         <!-- ================= 确认订单 ================= -->
@@ -105,6 +151,9 @@
 </template>
 
 <script>
+import { useCollectStore } from '../stores/collect'
+import { useUserStore } from '../stores/user'
+
 const svg = d =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 
@@ -118,7 +167,7 @@ const ICON = {
 
 export default {
   name: 'goodsDetail',
-  props: ['gData', 'Type', 'gclose'],
+  props: ['gData', 'Type', 'gclose', 'standalone'],
   data() {
     return {
       ICON,
@@ -143,6 +192,8 @@ export default {
       },
       seller: {
         name: '示例卖家',
+        avatar: '',
+        listing: 0,
         communication: '联系方式: example@test.com',
         address: '示例地址',
       },
@@ -154,6 +205,10 @@ export default {
         purchaseId: 88887776,
         purchaseTime: '',
       },
+      // 留言板
+      comments: [],
+      commentText: '',
+      commentSending: false,
       times: '',
     };
   },
@@ -162,6 +217,10 @@ export default {
       const a = this.customer.address;
       if (Array.isArray(a)) return a[this.currentAddress] || a[0] || '未设置';
       return a || '未设置';
+    },
+    // 留言需要登录：登录态来自 Pinia
+    canComment() {
+      return useUserStore().isLogged;
     },
   },
   mounted() {
@@ -177,25 +236,21 @@ export default {
       const n = Number(v);
       return Number.isFinite(n) ? n.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) : v;
     },
-    collect(id) {
-      this.$http({ method: 'get', url: 'shop/collectAdd', params: { commodityId: id } })
-        .then(res => {
-          if (res.data == true) {
-            this.goodsData.likeCount += 1;
-            this.goodsData.likeStatus = true;
-            this.$emit('showmsg', { info: '已加入收藏', colorType: 1 });
-          } else if (res.data == false) {
-            this.goodsData.likeCount = Math.max(0, this.goodsData.likeCount - 1);
-            this.goodsData.likeStatus = false;
-            this.$emit('showmsg', { info: '已取消收藏', colorType: 3 });
-          }
-        })
-        .catch(() => {
-          this.$emit('showmsg', { info: '收藏失败', colorType: 3 });
-        });
+    async collect(id) {
+      // 收藏状态放 Pinia：商品市场、个人中心「我的收藏」与详情页保持一致
+      try {
+        const { on, count } = await useCollectStore().toggle(id)
+        this.goodsData.likeCount = count
+        this.goodsData.likeStatus = on
+        this.$emit('showmsg', { info: on ? '已加入收藏' : '已取消收藏', colorType: on ? 1 : 3 })
+      } catch (e) {
+        this.$emit('showmsg', { info: '收藏失败', colorType: 3 })
+      }
     },
     close() {
-      this.$emit('gclose');
+      // 独立页面模式下由页面负责返回列表，弹窗模式由父组件关闭
+      if (this.standalone) this.$emit('close-page');
+      else this.$emit('gclose');
     },
     changeImgByIndex(ind) {
       this.bigImgIndex = ind;
@@ -256,6 +311,14 @@ export default {
           this.goodsData.description = info.description || this.goodsData.description;
           this.goodsData.classification = info.category || this.goodsData.classification;
           this.goodsData.address = info.shippingAddress || this.goodsData.address;
+          // 独立页面 /goods/:id 进入时，标题与价格以接口为准
+          this.goodsData.name = info.tradeName || this.goodsData.name;
+          this.goodsData.price = info.price != undefined ? Number(info.price) : this.goodsData.price;
+          // 卖家信息：昵称、头像（base64）
+          this.seller.name = info.sellerName || this.seller.name;
+          if (info.sellerAvatar) this.seller.avatar = 'data:image/Jpeg;base64,' + info.sellerAvatar;
+          this.seller.listing = Number(info.listingCount) || 0;
+          this.loadComments();
         })
         .catch(() => {
           this.$emit('showmsg', { info: '商品详情加载失败', colorType: 3 });
@@ -266,10 +329,47 @@ export default {
           const d = res.data || {};
           this.goodsData.likeCount = d.likeCount || 0;
           this.goodsData.likeStatus = !!d.likeStatus;
+          // 同步收藏集合，个人中心/市场不必再各自请求
+          useCollectStore().sync(this.goodsData.id, !!d.likeStatus, d.likeCount || 0);
         })
         .catch(() => {
           this.$emit('showmsg', { info: '收藏信息加载失败', colorType: 3 });
         });
+    },
+    // ---------- 留言板 ----------
+    loadComments() {
+      this.$http({ method: 'get', url: '/comment/list', params: { commodityId: this.goodsData.id } })
+        .then(res => {
+          this.comments = Array.isArray(res.data) ? res.data : [];
+        })
+        .catch(() => {
+          this.comments = [];
+        });
+    },
+    submitComment() {
+      const content = this.commentText.trim();
+      if (!content || this.commentSending) return;
+      this.commentSending = true;
+      this.$http({
+        method: 'post',
+        url: '/comment/add',
+        params: { commodityId: this.goodsData.id, content },
+      })
+        .then(res => {
+          this.comments.unshift(res.data);
+          this.commentText = '';
+          this.$emit('showmsg', { info: '留言成功', colorType: 1 });
+        })
+        .catch(err => {
+          this.$emit('showmsg', { info: (err && err.friendly) || '留言失败', colorType: 3 });
+        })
+        .finally(() => {
+          this.commentSending = false;
+        });
+    },
+    goLogin() {
+      this.$emit('showmsg', { info: '留言前请先登录', colorType: 3 });
+      this.$router.push({ path: '/login', query: { redirect: this.$route.fullPath } });
     },
   },
   watch: {
@@ -289,6 +389,26 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 24px;
+}
+
+/* 独立路由页 /goods/:id：不遮挡页面，作为普通内容区展示 */
+.gd-layer.standalone {
+  position: static;
+  z-index: auto;
+  display: block;
+  padding: 28px 0 56px;
+}
+
+.gd-layer.standalone .gd-dialog {
+  width: min(1100px, 100%);
+  max-height: none;
+  margin: 0 auto;
+  overflow: visible;
+  box-shadow: 0 18px 50px rgba(8, 20, 14, 0.12);
+}
+
+.gd-layer.standalone .gd-panel {
+  padding: 30px;
 }
 
 .gd-mask {
@@ -737,5 +857,204 @@ export default {
   .gd-main {
     aspect-ratio: 16 / 10;
   }
+}
+
+/* ============ 卖家信息 ============ */
+.gd-seller {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--cl-surface);
+  border: 1px solid var(--cl-line);
+}
+
+.gd-seller-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+
+.gd-seller-avatar-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cl-brand-weak, #e6f2ed);
+  color: var(--cl-brand);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.gd-seller-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.gd-seller-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cl-ink);
+}
+
+.gd-seller-meta {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--cl-muted);
+}
+
+.gd-seller-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--cl-brand-weak, #e6f2ed);
+  color: var(--cl-brand);
+}
+
+/* ============ 留言板 ============ */
+.gd-comments {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--cl-line);
+}
+
+.gd-comments-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.gd-comments-head h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--cl-ink);
+}
+
+.gd-comments-head h3 b {
+  color: var(--cl-brand);
+}
+
+.gd-comments-head p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--cl-muted);
+}
+
+.gd-comment-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.gd-comment-input {
+  flex: 1;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--cl-line);
+  background: #fff;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.gd-comment-input:focus {
+  border-color: var(--cl-brand);
+}
+
+.gd-comment-send {
+  padding: 0 20px;
+  height: 40px;
+  border-radius: 12px;
+  border: none;
+  background: var(--cl-brand);
+  color: #fff;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.gd-comment-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gd-comment-login {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--cl-muted);
+}
+
+.gd-comment-login button {
+  border: none;
+  background: none;
+  color: var(--cl-brand);
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+.gd-comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.gd-comment-item {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--cl-surface);
+}
+
+.gd-comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gd-comment-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid var(--cl-line);
+  font-size: 12px;
+  color: var(--cl-text-2);
+}
+
+.gd-comment-name {
+  font-size: 13px;
+  color: var(--cl-ink);
+}
+
+.gd-comment-time {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--cl-muted);
+}
+
+.gd-comment-body {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--cl-text);
+}
+
+.gd-comment-empty {
+  padding: 18px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--cl-muted);
 }
 </style>
