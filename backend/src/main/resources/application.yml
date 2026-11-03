@@ -1,0 +1,11 @@
+spring:
+  profiles:
+    active: pro
+  mail:
+    host: smtp.qq.com
+    username: your_email@qq.com
+    password: your_authorization_code
+    smtp:
+      ssl:
+        enable: true
+    default-encoding: UTF-8

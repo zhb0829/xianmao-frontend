@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.gxu.dao.UserOrderMapper">
+    <resultMap id="BaseResultMap" type="cn.edu.gxu.model.Order">
+        <id column="ID" jdbcType="INTEGER" property="id" />
+        <result column="CommodityID" jdbcType="INTEGER" property="commodityId" />
+        <result column="UserID" jdbcType="INTEGER" property="userid" />
+        <result column="PersonID" jdbcType="INTEGER" property="personId" />
+        <result column="SubmitTime" jdbcType="TIMESTAMP" property="submitTime" />
+        <result column="SubmitPrices" jdbcType="FLOAT" property="submitPrices" />
+        <result column="LogisticsStatus" jdbcType="VARCHAR" property="logisticsStatus" />
+        <result column="OrderStatus" jdbcType="VARCHAR" property="orderStatus" />
+        <result column="SellUserID" jdbcType="INTEGER" property="sellUserId"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        ID, CommodityID, UserID, PersonID, SubmitTime, SubmitPrices, LogisticsStatus, OrderStatus, SellUserID
+    </sql>
+    <select id="selectUserID" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List" />
+        from  `order`
+        where  UserID = #{userId,jdbcType=INTEGER}
+    </select>
+    <select id="selectSellUserID" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List" />
+        from `order`
+        where SellUserID = #{sellUserId,jdbcType=INTEGER}
+    </select>
+</mapper>

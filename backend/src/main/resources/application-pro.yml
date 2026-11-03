@@ -1,0 +1,41 @@
+server:
+#  ip: localhost
+  port: 9080
+
+spring:
+  application:
+    name: springfox-swagger
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/mydb?serverTimezone=GMT%2b8
+    username: mydb
+    password: 12345
+#  redis:
+#    host: 127.0.0.1
+#    port: 6379
+#  servlet:
+#    multipart:
+#      max-file-size: 100MB
+#      max-request-size: 100MB
+mybatis:
+  mapper-locations: classpath:mapper/*.xml  #扫描所有mybatis的xml文件
+#  configuration:
+#    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+#files:
+#  upload:
+#    path: D:/files/
+##    path: /home/files/
+
+swagger:
+  enable: true
+  application-name: ${spring.application.name}
+  application-version: 1.0
+  application-description: springfox swagger 3.0整合Demo
+  try-host: http://localhost:${server.port}
+
+
+

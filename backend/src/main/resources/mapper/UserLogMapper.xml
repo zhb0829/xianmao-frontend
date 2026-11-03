@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.edu.gxu.dao.UserLogMapper">
+  <resultMap id="BaseResultMap" type="cn.edu.gxu.model.UserLog">
+    <id column="ID" jdbcType="INTEGER" property="id" />
+    <result column="Account" jdbcType="VARCHAR" property="account" />
+    <result column="Password" jdbcType="VARCHAR" property="password" />
+    <result column="Authority" jdbcType="INTEGER" property="authority" />
+    <result column="Email" jdbcType="VARCHAR" property="email" />
+  </resultMap>
+  <sql id="Base_Column_List">
+    ID, Account, Password, Authority, Email
+  </sql>
+  <select id="selectByPrimaryKey" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+    select 
+    <include refid="Base_Column_List" />
+    from userlog
+    where ID = #{id,jdbcType=INTEGER}
+  </select>
+  <select id="selectIdByAccount" parameterType="string" resultType="integer">
+    select  Id
+    from userlog
+    where  account=#{account,jdbcType=INTEGER}
+  </select>
+
+  <select id="hadMail" resultType="cn.edu.gxu.model.UserLog">
+    select
+    <include refid="Base_Column_List" />
+    from userlog
+    where  Email=#{mail,jdbcType=VARCHAR}
+  </select>
+  <select id="selectByUserId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+    select
+    <include refid="Base_Column_List"/>
+    from userlog
+    where Id =#{id,jdbcType=INTEGER}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
+    delete from userlog
+    where ID = #{id,jdbcType=INTEGER}
+  </delete>
+  <insert id="insert" parameterType="cn.edu.gxu.model.UserLog">
+    insert into userlog (ID, Account, Password, 
+      Authority, Email)
+    values (#{id,jdbcType=INTEGER}, #{email,jdbcType=VARCHAR}, #{password,jdbcType=VARCHAR},
+      #{authority,jdbcType=VARCHAR}, #{email,jdbcType=VARCHAR})
+  </insert>
+  <insert id="insertSelective" parameterType="cn.edu.gxu.model.UserLog">
+    insert into userlog
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        ID,
+      </if>
+      <if test="account != null">
+        Account,
+      </if>
+      <if test="password != null">
+        Password,
+      </if>
+      <if test="authority != null">
+        Authority,
+      </if>
+      <if test="email != null">
+        Email,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides=",">
+      <if test="id != null">
+        #{id,jdbcType=INTEGER},
+      </if>
+      <if test="account != null">
+        #{account,jdbcType=VARCHAR},
+      </if>
+      <if test="password != null">
+        #{password,jdbcType=VARCHAR},
+      </if>
+      <if test="authority != null">
+        #{authority,jdbcType=VARCHAR},
+      </if>
+      <if test="email != null">
+        #{email,jdbcType=VARCHAR},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="cn.edu.gxu.model.UserLog">
+    update userlog
+    <set>
+      <if test="account != null">
+        Account = #{account,jdbcType=VARCHAR},
+      </if>
+      <if test="password != null">
+        Password = #{password,jdbcType=VARCHAR},
+      </if>
+      <if test="authority != null">
+        Authority = #{authority,jdbcType=VARCHAR},
+      </if>
+      <if test="email != null">
+        Email = #{email,jdbcType=VARCHAR},
+      </if>
+    </set>
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="cn.edu.gxu.model.UserLog">
+    update userlog
+    set Account = #{account,jdbcType=VARCHAR},
+      Password = #{password,jdbcType=VARCHAR},
+      Authority = #{authority,jdbcType=VARCHAR},
+      Email = #{email,jdbcType=VARCHAR}
+    where ID = #{id,jdbcType=INTEGER}
+  </update>
+</mapper>
