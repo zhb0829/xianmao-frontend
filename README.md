@@ -80,7 +80,7 @@ npm run dev
 | `docs/课程设计报告.docx` | 课程设计报告：选题背景、需求、架构、关键实现、数据库、测试、分工 |
 | `docs/答辩PPT.pptx` | 答辩演示 PPT（12 页，16:9） |
 | `docs/项目评审表.docx` | 评分表、模块演示与分工确认、答辩问答记录、评审意见 |
-| `docs/接口文档.md` | 37 个接口的方法、参数、返回示例与联调说明 |
+| `docs/接口文档.md` | 47 个接口的方法、参数、返回示例与联调说明 |
 
 ## 功能介绍
 
@@ -93,14 +93,17 @@ npm run dev
 ### 商品浏览
 - **首页** `/welcome`：分类导航、搜索框、推荐商品（`/commodity/getCommodity` 接口数据）、价格筛选与排序
 - **商品市场** `/shop`：关键词 + 分类筛选、价格/时间排序、分页
-- **商品详情页** `/goods/:id`：独立路由，图集轮播、商品介绍、卖家信息、收藏、下单支付、留言板
+- **搜索页** `/search`：独立搜索页，热门搜索词、本地搜索历史、结果分页与空状态
+- **商品详情页** `/goods/:id`：独立路由，图集轮播、商品介绍、卖家信息、收藏、下单支付、留言板、买家评价
+- **卖家主页** `/seller/:id`：卖家信用与在售/已售统计、TA 的在售闲置（详情页卖家卡片进入）
 - **收藏商品**：收藏状态由 Pinia `collectStore` 统一维护，市场 / 详情 / 个人中心实时一致
 
 ### 交易流程
 1. 买家浏览商品，点击卡片进入详情页
 2. 点击「购买」生成订单，填写/使用收货地址
 3. 支付订单 → 卖家发货 → 买家确认收货
-4. 「我买到的 / 我卖出的」分别查看订单状态
+4. **订单详情页** `/order/:id`：状态时间线、支付/发货/收货操作、买家评价（5 星 + 文字）
+5. 「我买到的 / 我卖出的」分别查看订单状态
 
 ### 商品发布与我的商品
 - **发布页** `/publish`：独立路由，三步表单（信息 → 图片 → 确认），封面与最多 6 张轮播图
@@ -117,6 +120,7 @@ npm run dev
 - 下架违规商品
 - 查看商品分类占比饼图（ECharts）
 - 按状态、分类、时间筛选与搜索、分页
+- **分类管理** `/admin/category`：分类增删改，带商品数统计；有商品的分类禁止删除，改名同步到已有商品
 
 ## 技术栈
 
@@ -126,7 +130,7 @@ npm run dev
 |------|------|
 | Vue 3 | 前端框架（页面 Options API + 站点页头等组件 `<script setup>`） |
 | Vite 4 | 构建工具与热更新；Mock 以插件形式接入 dev server |
-| Vue Router 4 | 客户端路由：9 条路由、动态 import、全局登录守卫 |
+| Vue Router 4 | 客户端路由：13 条路由、动态 import、全局登录守卫 |
 | Pinia 2 | 状态管理：`userStore`（登录态/权限）、`collectStore`（收藏集合） |
 | Axios | HTTP 请求，`src/api/request.js` 统一封装（token 注入、错误文案） |
 | ECharts 5.3 | 数据可视化（管理端分类占比饼图） |
@@ -172,7 +176,7 @@ xianmao/
 │   ├── package.json
 │   ├── vite.config.js                # Mock 开关 / 真实后端代理
 │   ├── index.html
-│   ├── mock/                         # 演示 Mock（37 个 /api 端点）
+│   ├── mock/                         # 演示 Mock（47 个 /api 端点）
 │   │   ├── index.js                  # Vite 插件：注册 /api 中间件、托管演示图
 │   │   ├── routes.js                 # 端点路由表与内存状态
 │   │   └── data.js                   # 演示种子数据
@@ -182,8 +186,8 @@ xianmao/
 │       ├── api/request.js            # axios 统一封装
 │       ├── api/localStore.js         # 求购 / 校园圈本地数据层
 │       ├── stores/                   # Pinia：user.js、collect.js
-│       ├── router/index.js           # 9 条路由 + 登录守卫
-│       ├── pages/                    # 9 个页面：intro、welcome、shop、login、publish、goods、person、want、circle
+│       ├── router/index.js           # 13 条路由 + 登录守卫
+│       ├── pages/                    # 13 个页面：intro、welcome、shop、login、publish、goods、seller、order、search、adminCategory、person、want、circle
 │       ├── components/               # 19 个可复用组件
 │       └── styles/cl.css             # 设计系统
 │
@@ -212,13 +216,17 @@ xianmao/
 
 ## API 路由
 
-前端统一通过 `/api` 前缀访问接口，演示模式由 `mock/` 中间件接管，共 37 个端点；完整参数与返回示例见 [`docs/接口文档.md`](docs/接口文档.md)。
+前端统一通过 `/api` 前缀访问接口，演示模式由 `mock/` 中间件接管，共 47 个端点；完整参数与返回示例见 [`docs/接口文档.md`](docs/接口文档.md)。
 
 | 前缀 | 端点数 | 说明 |
 |------|------|------|
 | `/user` | 3 | 登录、注册、验证码 |
 | `/commodity` | 10 | 列表查询、首图、收藏数、详情、发布、轮播图、编辑、下架、上架 |
-| `/category` | 1 | 商品分类 |
+| `/category` | 5 | 分类列表、分类管理（新增/改名/删除，带商品数） |
+| `/seller` | 2 | 卖家信息、卖家在售商品 |
+| `/order` | 1 | 订单详情（买卖双方与状态） |
+| `/review` | 2 | 买家评价提交、按商品查询评价与均分 |
+| `/search` | 1 | 热门搜索词 |
 | `/collect` | 2 | 收藏增删 |
 | `/shop` | 4 | 收藏切换、下单、支付、发货 |
 | `/person` | 8 | 统计、我收藏/买到/卖出/发布、收货、删除订单 |
