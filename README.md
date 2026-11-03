@@ -40,8 +40,8 @@ npm run preview
 
 ### 说明
 
-- 数据层：`src/mock`（浏览器内置 Mock + 内存状态），演示图片在 `public/demo`。
-- 刷新页面会重置演示数据；同一页面内切换账号数据共享。
+- 数据层：`src/mock`（浏览器内置 Mock，状态持久化到 localStorage），演示图片在 `public/demo`。
+- 刷新页面数据保留；需要恢复初始数据时执行 `window.__xmResetMock()`。同一页面内切换账号数据共享。
 - 详细演示流程与覆盖范围见 [README-DEMO.md](./README-DEMO.md)。
 - 控制台调试：`window.__xmHttp({ method: 'get', url: '/commodity/getCommodity' })`。
 

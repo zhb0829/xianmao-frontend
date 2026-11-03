@@ -11,6 +11,7 @@ import 'animate.css/animate.min.css'
 // 统一请求封装：token 注入、baseURL、错误提示都在 src/api/request.js 里
 import http, { setRequestToken } from './api/request.js'
 import { useUserStore } from './stores/user.js'
+import { resetMock } from './mock/index.js'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -28,9 +29,11 @@ app.config.globalProperties.$userStore = userStore
 
 // 调试/演示用：浏览器控制台可直接调接口，例如
 // window.__xmHttp({ method: 'get', url: '/commodity/getCommodity' })
+// 需要恢复初始数据时执行：window.__xmResetMock()
 if (typeof window !== 'undefined') {
   window.__xmHttp = http
   window.__xmRouter = router
+  window.__xmResetMock = resetMock
 }
 
 app.mount('#app')

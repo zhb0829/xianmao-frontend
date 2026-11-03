@@ -63,15 +63,17 @@ npm run preview  # 打开终端提示的地址（默认 http://localhost:4173）
 
 ## 数据行为
 
-- Mock 状态保存在**浏览器内存**：同一页面内切换账号数据共享；**刷新页面会重置为初始数据**（重启预览服务不影响页面内状态）。
+- Mock 状态保存在**浏览器内存**，并自动持久化到 localStorage（`xm:mock-state:v1`）：**刷新页面数据保留**，同一页面内切换账号数据共享。
+- 存储空间不足时自动降级（例如上传了大量图片）：商品文字数据保留，上传图片可能不保留，控制台会提示。
+- 需要恢复初始数据：控制台执行 `window.__xmResetMock()`，或清除浏览器 localStorage。
 - 新发布的商品、审核结果、收藏、订单、留言、评价、分类改动都只存在于当前页面会话。
 - 演示图片位于 `public/demo/`，构建时复制到 `dist/demo/`；Mock 启动时通过 `src/mock/images.js` 读成 base64 并缓存。
 - 调试：控制台可执行 `window.__xmHttp({ method: 'get', url: '/commodity/getCommodity' })` 直接调接口。
 
 ## 已知边界
 
+- **刷新保留**：状态持久化在 localStorage，刷新/关闭再打开都保留；只有清缓存或执行 `window.__xmResetMock()` 才会回到初始数据。
 - **纯前端演示**：所有数据都是 Mock，支付、验证码、邮箱都是模拟；不产生真实交易。
-- **刷新重置**：状态不落库、不持久化（图片 base64 也不进 localStorage，避免超额）。
 - **接真实后端**：把 `src/api/request.js` 里的自定义 adapter 去掉、恢复 baseURL，即可切回真实接口，页面代码无需修改。
 
 ## 相关文件
@@ -82,8 +84,9 @@ frontend/
 └─ src/
    ├─ mock/
    │  ├─ index.js        请求分发：路径匹配、参数/FormData 解析、错误转 status
-   │  ├─ routes.js       47 个接口与内存状态
+   │  ├─ routes.js       47 个接口与状态
    │  ├─ data.js         演示种子数据：账号、19 件商品、订单、留言、评价、统计
+   │  ├─ persistence.js  localStorage 持久化（刷新保留、配额降级、重置）
    │  └─ images.js       public/demo 图片转 base64（带缓存）
    ├─ api/request.js     axios 封装 + 内置 Mock adapter
    ├─ stores/            Pinia：user.js、collect.js
