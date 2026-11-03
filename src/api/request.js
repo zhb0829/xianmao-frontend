@@ -1,8 +1,9 @@
 // 统一请求封装
 // 1) 全部页面通过本实例发请求（main.js 挂到 this.$http），不再各自 new axios
 // 2) token 只在这里注入请求头；store 通过 setRequestToken 同步，页面不直接读写 localStorage
-// 3) 响应错误统一转成带 status / message 的对象，页面 catch 后直接提示
+// 3) 请求由浏览器内置 Mock（src/mock）接管：纯前端即可完整演示，无需后端
 import axios from 'axios'
+import { handleRequest } from '../mock/index.js'
 
 export const TOKEN_KEY = 'token'
 export const USER_KEY = 'xm:user'
@@ -33,6 +34,36 @@ const http = axios.create({
   baseURL: '/api/',
   timeout: 15000,
 })
+
+// 纯前端演示：请求不真正发到网络，交给浏览器内置 Mock 处理
+// 这样 `npm run dev` 与 `npm run build` 的产物行为一致，答辩时不必启动后端
+http.defaults.adapter = async function mockAdapter(config) {
+  const method = String(config.method || 'get').toUpperCase()
+  const headers = config.headers || {}
+  const token = typeof headers.get === 'function' ? headers.get('token') : headers.token
+  const res = await handleRequest({
+    method,
+    url: config.url || '',
+    params: config.params || {},
+    data: config.data,
+    headers: token ? { token } : {},
+  })
+  const response = {
+    data: res.data,
+    status: res.status,
+    statusText: res.status === 200 ? 'OK' : 'ERROR',
+    headers: {},
+    config,
+    request: {},
+  }
+  if (res.status >= 400) {
+    const err = new Error((res.data && res.data.error) || '请求失败')
+    err.config = config
+    err.response = response
+    throw err
+  }
+  return response
+}
 
 http.interceptors.request.use(
   config => {

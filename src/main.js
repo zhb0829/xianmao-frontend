@@ -26,4 +26,11 @@ app.config.globalProperties.$http = http
 app.config.globalProperties.$router = router
 app.config.globalProperties.$userStore = userStore
 
+// 调试/演示用：浏览器控制台可直接调接口，例如
+// window.__xmHttp({ method: 'get', url: '/commodity/getCommodity' })
+if (typeof window !== 'undefined') {
+  window.__xmHttp = http
+  window.__xmRouter = router
+}
+
 app.mount('#app')

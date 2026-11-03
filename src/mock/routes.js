@@ -1,20 +1,13 @@
 // 接口路由表：按前端实际调用的端点与字段结构返回演示数据
 // 目标：不启动 Spring Boot / MySQL 时，前端每个按钮都能走通一条完整业务链路：
 //   发布 -> 管理端审核 -> 商品市场 -> 下单 -> 支付 -> 买卖列表 -> 收货/发货 -> 收藏 -> 设置 -> 注册登录
-import fs from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import {
   categories, accounts, seedGoods, seedBought, seedSold, defaultProfile,
   GOODS_STATUS,
 } from './data.js'
+import { goodsBase64, avatarBase64 } from './images.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-// 演示图片放在 mock/assets/demo 下，由 mock 中间件托管，不进入生产构建产物
-const demoDir = path.resolve(__dirname, 'assets', 'demo')
-const goodsDir = path.join(demoDir, 'goods')
-
-// 运行时状态：刷新页面不会丢，重启 dev server 后重置
+// 运行时状态：只存在浏览器内存中，刷新页面会重置为初始数据
 export const state = {
   // token -> 用户
   tokens: new Map(),
@@ -58,36 +51,14 @@ export const state = {
   nextUserId: 3000,
 }
 
-const base64Cache = new Map()
-
-// 按文件修改时间缓存：演示图/头像被替换后（mtime 变化）自动重新读取，
-// 不必重启 dev server 才能看到新图
-function readFileBase64(key, file) {
-  let mtime = 0
-  try {
-    mtime = fs.statSync(file).mtimeMs
-  } catch {
-    return ''
-  }
-  const cached = base64Cache.get(key)
-  if (cached && cached.mtime === mtime) return cached.b64
-  let b64 = ''
-  try {
-    b64 = fs.readFileSync(file).toString('base64')
-  } catch {
-    b64 = ''
-  }
-  base64Cache.set(key, { mtime, b64 })
-  return b64
-}
-
+// 前端统一按 'data:image/Jpeg;base64,' + 纯 base64 拼接，这里返回纯 base64
 function readBase64(img) {
-  return readFileBase64(`goods:${img}`, path.join(goodsDir, `${img}.jpg`))
+  return goodsBase64(img)
 }
 
-// 头像：前端统一按 'data:image/Jpeg;base64,' + 纯base64 拼接，这里返回纯 base64
+// 头像：所有演示卖家共用一个头像
 function readAvatar() {
-  return readFileBase64('avatar', path.join(demoDir, 'avatar.jpg'))
+  return avatarBase64()
 }
 
 // 前端 FileReader 上传的是完整 data URI，存库时只保留 base64 部分
