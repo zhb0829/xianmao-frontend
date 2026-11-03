@@ -45,6 +45,14 @@ export const state = {
     { id: 5, commodityId: 14, authorId: 1001, authorName: '演示同学', content: '冰箱用了多久？压缩机声音大不大？', time: '2026-11-02 19:33' },
   ],
   nextCommentId: 100,
+  // 分类可在管理端增删改，用可变副本（初始值来自 data.js）
+  categories: [...categories],
+  // 商品评价：订单完成后买家提交，商品详情页展示
+  reviews: [
+    { id: 1, orderId: 9102, commodityId: 8, score: 5, content: '书很新，价格也合适，面交很顺利。', authorName: '演示同学', time: '2026-10-29 10:20' },
+    { id: 2, orderId: 9201, commodityId: 1, score: 4, content: '手机成色和描述一致，卖家很好说话。', authorName: '陈同学', time: '2026-10-30 18:40' },
+  ],
+  nextReviewId: 100,
   nextGoodsId: 100,
   nextOrderId: 10000,
   nextUserId: 3000,
@@ -360,9 +368,89 @@ export function createRoutes() {
     return true
   })
 
+  // ---------- 卖家主页 ----------
+  // 卖家公开信息：昵称、信用、在售/已售数量
+  add('GET', '/seller/detail', ctx => {
+    const userId = Number(val(ctx, 'userId', 'sellerId', 'id'))
+    const goods = state.goods.filter(g => g.sellerId === userId)
+    const first = goods[0]
+    const listing = goods.filter(g => g.status === GOODS_STATUS.PASS).length
+    const sold = goods.filter(g => g.status === GOODS_STATUS.SOLD).length
+    const rank = 0.7 + ((userId % 3) * 0.1)
+    return {
+      id: userId,
+      nickname: first ? first.sellerName : '校园卖家',
+      avatar: readAvatar(),
+      rank: Number(rank.toFixed(2)),
+      creditText: rank >= 0.75 ? '信用极好' : '信用良好',
+      listingCount: listing,
+      soldCount: sold,
+      goodsCount: goods.length,
+      joinedAt: '2025-09',
+      intro: '在校学生，闲置多为自用物品，支持校内当面验货，交易后可留言评价。',
+    }
+  })
+
+  // 卖家在售商品（只返回审核通过的）
+  add('GET', '/seller/goods', ctx => {
+    const userId = Number(val(ctx, 'userId', 'sellerId', 'id'))
+    return state.goods
+      .filter(g => g.sellerId === userId && g.status === GOODS_STATUS.PASS)
+      .map(g => ({ id: g.id, tradeName: g.tradeName, price: g.price, category: g.category, time: g.time }))
+  })
+
+  // ---------- 搜索 ----------
+  // 热门搜索词：由商品名称派生，避免写死一份与商品库无关的词
+  add('GET', '/search/hot', () => {
+    const words = ['iPhone', '键盘', '自行车', '教材', '台灯', '冰箱', '羽毛球', '考研', '耳机', '宿舍']
+    return words.filter(w => state.goods.some(g => g.tradeName.includes(w))).slice(0, 8)
+  })
+
   // ---------- 分类 ----------
   // 与后端一致：分类返回对象数组（前端读取 name 字段）
-  add('GET', '/category/getAllCategories', () => categories.map(name => ({ name })))
+  add('GET', '/category/getAllCategories', () => state.categories.map(name => ({ name })))
+
+  // 分类管理（管理端）：带商品数量统计
+  add('GET', '/category/list', () =>
+    state.categories.map(name => ({
+      name,
+      count: state.goods.filter(g => g.category === name).length,
+    })),
+  )
+
+  add('POST', '/category/add', ctx => {
+    const name = String(val(ctx, 'name') || '').trim()
+    if (!name) fail('分类名称不能为空', 400)
+    if (name.length > 12) fail('分类名称不超过 12 个字', 400)
+    if (state.categories.includes(name)) fail('该分类已存在', 400)
+    state.categories.push(name)
+    return true
+  })
+
+  add('POST', '/category/update', ctx => {
+    const oldName = String(val(ctx, 'oldName', 'name') || '').trim()
+    const newName = String(val(ctx, 'newName') || '').trim()
+    const index = state.categories.indexOf(oldName)
+    if (index < 0) fail('分类不存在', 404)
+    if (!newName) fail('新分类名称不能为空', 400)
+    if (newName !== oldName && state.categories.includes(newName)) fail('该分类已存在', 400)
+    state.categories[index] = newName
+    // 同步已发布商品的分类
+    for (const g of state.goods) {
+      if (g.category === oldName) g.category = newName
+    }
+    return true
+  })
+
+  add('POST', '/category/delete', ctx => {
+    const name = String(val(ctx, 'name') || '').trim()
+    const index = state.categories.indexOf(name)
+    if (index < 0) fail('分类不存在', 404)
+    const used = state.goods.filter(g => g.category === name).length
+    if (used > 0) fail(`该分类下还有 ${used} 件商品，不能删除`, 400)
+    state.categories.splice(index, 1)
+    return true
+  })
 
   // ---------- 用户 ----------
   add('POST', '/user/login', ctx => {
@@ -563,6 +651,74 @@ export function createRoutes() {
       state.likeCount.set(id, Math.max(0, goodsCount(id) - 1))
     }
     return true
+  })
+
+  // ---------- 订单详情与评价 ----------
+  function findOrder(orderId) {
+    const id = Number(orderId)
+    const bought = state.orders.find(o => o.id === id)
+    if (bought) return bought
+    return state.sells.find(o => o.id === id) || null
+  }
+
+  add('GET', '/order/detail', ctx => {
+    const orderId = Number(val(ctx, 'orderId', 'id'))
+    const user = userOf(ctx)
+    const order = findOrder(orderId)
+    if (!order) fail('订单不存在', 404)
+    const good = findGoods(order.commodityId)
+    const review = state.reviews.find(r => r.orderId === orderId) || null
+    const isBuyer = order.buyerId === user.id
+    const isSeller = order.sellerId === user.id || (good && good.sellerId === user.id)
+    return {
+      id: order.id,
+      commodityId: order.commodityId,
+      name: order.name,
+      price: order.price,
+      seller: order.seller,
+      buyer: isBuyer ? user.nickname : '同学',
+      orderStatus: order.orderStatus,
+      logisticsStatus: order.logisticsStatus,
+      submitTime: order.submitTime,
+      buyerId: order.buyerId || 0,
+      sellerId: order.sellerId || (good ? good.sellerId : 0),
+      role: isBuyer ? 'buyer' : isSeller ? 'seller' : 'viewer',
+      review,
+    }
+  })
+
+  add('POST', '/review/add', ctx => {
+    const orderId = Number(val(ctx, 'orderId', 'id'))
+    const score = Number(val(ctx, 'score'))
+    const content = String(val(ctx, 'content') || '').trim()
+    const user = userOf(ctx)
+    const order = findOrder(orderId)
+    if (!order) fail('订单不存在', 404)
+    if (order.buyerId !== user.id) fail('只有买家可以评价该订单', 403)
+    if (state.reviews.some(r => r.orderId === orderId)) fail('该订单已经评价过了', 400)
+    if (!(score >= 1 && score <= 5)) fail('评分需要在 1~5 之间', 400)
+    if (!content) fail('评价内容不能为空', 400)
+    if (order.orderStatus !== '已完成' && order.logisticsStatus !== '已签收') {
+      fail('订单完成后才能评价', 400)
+    }
+    const item = {
+      id: state.nextReviewId++,
+      orderId,
+      commodityId: order.commodityId,
+      score,
+      content: content.slice(0, 200),
+      authorName: user.nickname || '同学',
+      time: nowStr(),
+    }
+    state.reviews.push(item)
+    return item
+  })
+
+  add('GET', '/review/list', ctx => {
+    const commodityId = Number(val(ctx, 'commodityId', 'commodityID', 'id'))
+    const list = state.reviews.filter(r => r.commodityId === commodityId)
+    const avg = list.length ? Number((list.reduce((s, r) => s + r.score, 0) / list.length).toFixed(1)) : 0
+    return { list: [...list].sort((a, b) => b.id - a.id), avg, total: list.length }
   })
 
   // ---------- 留言 ----------

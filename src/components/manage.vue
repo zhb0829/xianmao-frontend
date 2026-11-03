@@ -21,6 +21,8 @@
             <span>总页数</span>
           </div>
         </div>
+
+        <button class="cat-entry" @click="$router.push('/admin/category')">分类管理 ›</button>
       </div>
     </div>
 
@@ -340,6 +342,24 @@ export default {
 .note-num span {
   font-size: 11px;
   color: var(--cl-muted);
+}
+
+/* 分类管理入口 */
+.cat-entry {
+  margin-top: 16px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--cl-brand);
+  background: transparent;
+  color: var(--cl-brand);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.16s, color 0.16s;
+}
+
+.cat-entry:hover {
+  background: var(--cl-brand);
+  color: #fff;
 }
 
 /* 工具条 */

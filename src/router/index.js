@@ -62,6 +62,42 @@ const router = createRouter({
             }
         },
         {
+            // 卖家主页：卖家信息 + 在售商品
+            path:'/seller/:id',
+            component: () => import('../pages/seller.vue'),
+            meta:{
+                need_login: false,
+                index: 2
+            }
+        },
+        {
+            // 订单详情 + 买家评价
+            path:'/order/:id',
+            component: () => import('../pages/order.vue'),
+            meta:{
+                need_login: true,
+                index: 5
+            }
+        },
+        {
+            // 独立搜索页：热搜词、搜索历史、结果分页
+            path:'/search',
+            component: () => import('../pages/search.vue'),
+            meta:{
+                need_login: false,
+                index: 2
+            }
+        },
+        {
+            // 分类管理（管理员）
+            path:'/admin/category',
+            component: () => import('../pages/adminCategory.vue'),
+            meta:{
+                need_login: true,
+                index: 5
+            }
+        },
+        {
             path:'/customer',
             component: () => import('../pages/person.vue'),
             meta:{

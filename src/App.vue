@@ -18,11 +18,12 @@ export default {
   name: 'topPage',
   components: { msg, navbar, load },
   computed: {
-    // 首页、商品市场、个人中心、求购专区、校园圈、登录/注册、发布、商品详情都使用页面自带的站点页头
+    // 首页、商品市场、个人中心、求购专区、校园圈、登录/注册、发布、商品详情、卖家主页、订单、搜索、分类管理都使用页面自带的站点页头
     isLanding() {
       const p = this.$route.path
-      if (p.startsWith('/goods')) return true
-      return ['/', '/welcome', '/shop', '/customer', '/want', '/circle', '/login', '/publish'].includes(p)
+      if (p.startsWith('/goods') || p.startsWith('/seller') || p.startsWith('/order')) return true
+      if (p.startsWith('/admin')) return true
+      return ['/', '/welcome', '/shop', '/customer', '/want', '/circle', '/login', '/publish', '/search'].includes(p)
     }
   },
   data() {

@@ -41,8 +41,13 @@
 
             <p class="gd-desc">{{ goodsData.description }}</p>
 
-            <!-- 卖家信息：校园认证标识 + 在售件数 -->
-            <div class="gd-seller">
+            <!-- 卖家信息：校园认证标识 + 在售件数，点击进入卖家主页 -->
+            <div
+              class="gd-seller"
+              :class="{ clickable: !!seller.id }"
+              :title="seller.id ? '查看卖家主页' : ''"
+              @click="goSeller"
+            >
               <img v-if="seller.avatar" class="gd-seller-avatar" :src="seller.avatar" alt="" />
               <span v-else class="gd-seller-avatar gd-seller-avatar-empty">卖</span>
               <div class="gd-seller-main">
@@ -50,6 +55,7 @@
                 <p class="gd-seller-meta">校园认证卖家 · 在售 {{ seller.listing || 0 }} 件</p>
               </div>
               <span class="gd-seller-tag">实名</span>
+              <span v-if="seller.id" class="gd-seller-more">主页 ›</span>
             </div>
 
             <div class="gd-foot">
@@ -64,6 +70,24 @@
               </button>
             </div>
           </div>
+
+          <!-- 买家评价：订单完成后由买家提交，按商品聚合 -->
+          <section v-if="reviews.length" class="gd-reviews">
+            <header class="gd-reviews-head">
+              <h3>买家评价 <b>{{ reviews.length }}</b></h3>
+              <span class="gd-reviews-avg">{{ reviewAvg }} 分</span>
+            </header>
+            <ul class="gd-review-list">
+              <li v-for="r in reviews" :key="r.id" class="gd-review-item">
+                <div class="gd-review-head">
+                  <span class="gd-review-name">{{ r.authorName }}</span>
+                  <span class="gd-review-stars">{{ starsOf(r.score) }}</span>
+                  <time class="gd-review-time">{{ r.time }}</time>
+                </div>
+                <p class="gd-review-body">{{ r.content }}</p>
+              </li>
+            </ul>
+          </section>
 
           <!-- 留言板：详情页内与卖家/同学交流 -->
           <section class="gd-comments">
@@ -191,6 +215,7 @@ export default {
         address: '商品默认地址',
       },
       seller: {
+        id: 0,
         name: '示例卖家',
         avatar: '',
         listing: 0,
@@ -209,6 +234,9 @@ export default {
       comments: [],
       commentText: '',
       commentSending: false,
+      // 买家评价（按商品聚合）
+      reviews: [],
+      reviewAvg: 0,
       times: '',
     };
   },
@@ -318,7 +346,9 @@ export default {
           this.seller.name = info.sellerName || this.seller.name;
           if (info.sellerAvatar) this.seller.avatar = 'data:image/Jpeg;base64,' + info.sellerAvatar;
           this.seller.listing = Number(info.listingCount) || 0;
+          this.seller.id = Number(info.sellerId) || 0;
           this.loadComments();
+          this.loadReviews();
         })
         .catch(() => {
           this.$emit('showmsg', { info: '商品详情加载失败', colorType: 3 });
@@ -337,6 +367,23 @@ export default {
         });
     },
     // ---------- 留言板 ----------
+    // ---------- 买家评价 ----------
+    starsOf(n) {
+      const score = Number(n) || 0;
+      return '★'.repeat(score) + '☆'.repeat(Math.max(0, 5 - score));
+    },
+    loadReviews() {
+      this.$http({ method: 'get', url: '/review/list', params: { commodityId: this.goodsData.id } })
+        .then(res => {
+          const d = res.data || {};
+          this.reviews = Array.isArray(d.list) ? d.list : [];
+          this.reviewAvg = d.avg || 0;
+        })
+        .catch(() => {
+          this.reviews = [];
+          this.reviewAvg = 0;
+        });
+    },
     loadComments() {
       this.$http({ method: 'get', url: '/comment/list', params: { commodityId: this.goodsData.id } })
         .then(res => {
@@ -370,6 +417,11 @@ export default {
     goLogin() {
       this.$emit('showmsg', { info: '留言前请先登录', colorType: 3 });
       this.$router.push({ path: '/login', query: { redirect: this.$route.fullPath } });
+    },
+    // 卖家主页：展示卖家信用、在售商品
+    goSeller() {
+      if (!this.seller.id) return;
+      this.$router.push(`/seller/${this.seller.id}`);
     },
   },
   watch: {
@@ -913,6 +965,100 @@ export default {
   border-radius: 999px;
   background: var(--cl-brand-weak, #e6f2ed);
   color: var(--cl-brand);
+}
+
+.gd-seller.clickable {
+  cursor: pointer;
+  transition: border-color 0.16s, background 0.16s;
+}
+
+.gd-seller.clickable:hover {
+  border-color: var(--cl-brand);
+  background: #f7fbf9;
+}
+
+.gd-seller-more {
+  font-size: 12px;
+  color: var(--cl-brand);
+  flex: none;
+}
+
+/* ============ 买家评价 ============ */
+.gd-reviews {
+  grid-column: 1 / -1;
+  margin-top: 6px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--cl-line);
+}
+
+.gd-reviews-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.gd-reviews-head h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--cl-ink);
+}
+
+.gd-reviews-head h3 b {
+  color: var(--cl-brand);
+}
+
+.gd-reviews-avg {
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #b07a1e;
+}
+
+.gd-review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.gd-review-item {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--cl-line);
+}
+
+.gd-review-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+}
+
+.gd-review-name {
+  color: var(--cl-ink);
+  font-weight: 600;
+}
+
+.gd-review-stars {
+  color: #e0a63a;
+  letter-spacing: 1px;
+  font-size: 12.5px;
+}
+
+.gd-review-time {
+  margin-left: auto;
+  color: var(--cl-muted);
+  font-size: 11.5px;
+}
+
+.gd-review-body {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--cl-text);
 }
 
 /* ============ 留言板 ============ */

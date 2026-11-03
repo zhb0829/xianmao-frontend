@@ -80,6 +80,7 @@
         </div>
 
         <div class="order-ops">
+          <button class="op-btn" @click="openOrder(item.oid)">详情</button>
           <button
             v-if="item.orderStatus === '未支付' && indx === 2"
             class="op-btn primary"
@@ -357,6 +358,10 @@ export default {
         .catch(() => {
           this.$emit('showmsg', { info: '删除失败', colorType: 3 });
         });
+    },
+    // 订单详情页：进度时间线、支付/收货操作与买家评价
+    openOrder(oid) {
+      this.$router.push(`/order/${oid}`);
     },
     pay(oid) {
       this.$http({ method: 'get', url: 'shop/payment', params: { orderId: oid } })

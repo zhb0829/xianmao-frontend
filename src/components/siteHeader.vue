@@ -134,7 +134,8 @@ function navigate(item) {
 function submitSearch() {
   const q = keyword.value.trim()
   menuOpen.value = false
-  router.push({ path: '/shop', query: q ? { keyword: q } : {} })
+  // 搜索走独立页面 /search，便于分享地址、查看热搜与搜索历史
+  router.push({ path: '/search', query: q ? { keyword: q } : {} })
 }
 
 function scrollToGuarantee() {
