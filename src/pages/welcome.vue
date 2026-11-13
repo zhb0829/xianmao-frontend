@@ -271,7 +271,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import siteHeader from '../components/siteHeader.vue'
 import siteFooter from '../components/siteFooter.vue'
@@ -544,35 +544,67 @@ const teamCards = [
 ]
 
 /* ---------------- 入场动画 ---------------- */
+// 商品卡片是在 loadGoods() 之后才渲染的，必须在 DOM 更新后再观察，
+// 否则 mounted 时卡片还是骨架屏，querySelectorAll 拿不到它们，
+// 卡片会一直停在 opacity: 0 而"看起来没数据"。
+const REVEAL_SELECTOR = '.hero-card, .cat-card, .goods-card, .guarantee-card, .flip-card'
+
+let revealObserver = null
+
+function showAllReveal() {
+  document.querySelectorAll(REVEAL_SELECTOR).forEach(el => el.classList.add('in-view'))
+}
+
+function observeReveal() {
+  const targets = document.querySelectorAll(REVEAL_SELECTOR)
+  if (!('IntersectionObserver' in window)) {
+    showAllReveal()
+    return
+  }
+  if (!revealObserver) {
+    revealObserver = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('in-view')
+            revealObserver.unobserve(entry.target)
+          }
+        })
+      },
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.06 },
+    )
+  }
+  targets.forEach(el => {
+    // 已展示或已在观察中的不重复处理
+    if (!el.classList.contains('in-view')) revealObserver.observe(el)
+  })
+}
+
 onMounted(() => {
   // 首屏商品走接口：Mock 模式下由 /api 中间件返回，真实后端同理
   loadGoods()
 
-  const targets = document.querySelectorAll('.hero-card, .cat-card, .goods-card, .guarantee-card, .flip-card')
-
-  const showAll = () => targets.forEach(el => el.classList.add('in-view'))
-
-  if (!('IntersectionObserver' in window)) {
-    showAll()
-    return
-  }
-
-  const io = new IntersectionObserver(
-    entries => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('in-view')
-          io.unobserve(entry.target)
-        }
-      })
-    },
-    { rootMargin: '0px 0px -8% 0px', threshold: 0.06 }
-  )
-
-  targets.forEach(el => io.observe(el))
+  observeReveal()
 
   // 兜底：无滚动或观察器未触发时，1.5 秒后也展示内容
-  window.setTimeout(showAll, 1500)
+  window.setTimeout(showAllReveal, 1500)
+})
+
+// 商品数据变化（首次加载、排序筛选、加载更多）后重新挂观察器
+watch(
+  visibleGoods,
+  async () => {
+    await nextTick()
+    observeReveal()
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  if (revealObserver) {
+    revealObserver.disconnect()
+    revealObserver = null
+  }
 })
 </script>
 

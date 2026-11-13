@@ -18,7 +18,7 @@
 
       <goods-detail
         v-else
-        standalone
+        :standalone="true"
         Type="purchase"
         :gData="gData"
         @close-page="$router.push('/shop')"

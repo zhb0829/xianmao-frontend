@@ -278,6 +278,8 @@ export default {
     close() {
       // 独立页面模式下由页面负责返回列表，弹窗模式由父组件关闭
       if (this.standalone) this.$emit('close-page');
+      // 兜底：父组件以 prop 形式传入了回调时直接调用，避免事件没人接导致弹框关不掉
+      else if (typeof this.gclose === 'function') this.gclose();
       else this.$emit('gclose');
     },
     changeImgByIndex(ind) {
