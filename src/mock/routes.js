@@ -580,7 +580,7 @@ export function createRoutes() {
     return {
       id: order.id,
       sellerName: good.sellerName,
-      address: profile.address || '广西大学东校园 7 栋',
+      address: profile.address || '集美大学诚毅学院东校园 7 栋',
       userName: profile.nickname || user.nickname,
       price: good.price,
     }
