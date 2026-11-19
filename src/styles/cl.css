@@ -1,0 +1,136 @@
+/* ==========================================================================
+   闲猫二手 Campus Loop —— 设计令牌与全局基础
+   参考设计稿：深墨绿 + 翡翠绿；Inter 字体；内容宽 1200px，页边距 120px
+   ========================================================================== */
+
+@font-face {
+  font-family: "Inter CL";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/cl/fonts/Inter-Regular.otf") format("opentype");
+}
+
+@font-face {
+  font-family: "Inter CL";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../assets/cl/fonts/Inter-SemiBold.otf") format("opentype");
+}
+
+@font-face {
+  font-family: "Inter CL";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/cl/fonts/Inter-Bold.otf") format("opentype");
+}
+
+:root {
+  /* 色板 */
+  --cl-ink: #0f1b16;
+  --cl-ink-2: #1e2b25;
+  --cl-brand: #00a67e;
+  --cl-brand-strong: #00805f;
+  --cl-brand-soft: #e6f7f1;
+  --cl-brand-mist: #f2fbf7;
+  --cl-text: #4a5a54;
+  --cl-muted: #879691;
+  --cl-muted-2: #8e9c96;
+  --cl-line: #e6eae8;
+  --cl-surface: #f5f7f6;
+  --cl-white: #ffffff;
+  --cl-on-brand: #e8fff7;
+  --cl-on-dark-soft: #b9c6c1;
+  --cl-mist-text: #c9ddd6;
+
+  /* 布局与节奏：内容宽 1376px（淘宝 PC 量级再放宽，1920 屏下不再两侧大片留白） */
+  --cl-page: 1376px;
+  --cl-gutter: 32px;
+  --cl-radius-s: 7px;
+  --cl-radius-m: 10px;
+  --cl-radius-l: 14px;
+  --cl-radius-xl: 18px;
+  --cl-radius-2xl: 20px;
+
+  /* 字体栈：西文用设计稿的 Inter，中文回退到系统黑体 */
+  --cl-font: "Inter CL", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB",
+    "Source Han Sans SC", "Noto Sans CJK SC", system-ui, -apple-system, sans-serif;
+}
+
+.cl-app {
+  font-family: var(--cl-font);
+  color: var(--cl-ink);
+  background: var(--cl-white);
+  -Webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+.cl-app *,
+.cl-app *::before,
+.cl-app *::after {
+  box-sizing: border-box;
+}
+
+.cl-app p,
+.cl-app h1,
+.cl-app h2,
+.cl-app h3,
+.cl-app h4,
+.cl-app figure {
+  margin: 0;
+}
+
+.cl-app a {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cl-app button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+.cl-app img {
+  display: block;
+  max-width: 100%;
+}
+
+.cl-app input {
+  font-family: inherit;
+  border: none;
+  outline: none;
+  background: none;
+  color: inherit;
+}
+
+/* 内容容器：大屏居中 1376px，中屏贴近铺满，窄屏自适应 */
+.cl-wrap {
+  width: 100%;
+  max-width: calc(var(--cl-page) + var(--cl-gutter) * 2);
+  margin: 0 auto;
+  padding: 0 var(--cl-gutter);
+}
+
+@media (max-width: 1460px) {
+  .cl-wrap {
+    padding: 0 24px;
+  }
+}
+
+@media (max-width: 760px) {
+  .cl-wrap {
+    padding: 0 16px;
+  }
+}
+
+/* 全局滚动锚点留出吸顶导航的高度 */
+.cl-app [id] {
+  scroll-margin-top: 96px;
+}

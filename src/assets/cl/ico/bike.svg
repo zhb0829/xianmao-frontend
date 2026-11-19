@@ -1,0 +1,7 @@
+<svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="21.000000" height="21.000000" fill="none" customFrame="#000000">
+	<rect id="bike" width="21.000000" height="21.000000" x="0.000000" y="0.000000" />
+	<circle id="椭圆 7" cx="16.1875" cy="15.3125" r="3.0625" stroke="rgb(0,128,95)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.750000" />
+	<circle id="椭圆 8" cx="4.8125" cy="15.3125" r="3.0625" stroke="rgb(0,128,95)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.750000" />
+	<circle id="椭圆 9" cx="13.125" cy="4.375" r="0.875" stroke="rgb(0,128,95)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.750000" />
+	<path id="矢量 36" d="M10.5 15.3125L10.5 12.25L7.875 9.625L11.375 7L13.125 9.625L14.875 9.625" fill-rule="nonzero" stroke="rgb(0,128,95)" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.750000" />
+</svg>

@@ -33,8 +33,9 @@ Web课设大作业，闲猫是一个面向大学生的**校园二手交易平台
 
 ### 开发模式
 
+在项目根目录执行：
+
 ```bash
-cd frontend
 npm install
 npm run dev
 # 浏览器打开 http://localhost:5173
@@ -44,7 +45,6 @@ npm run dev
 ### 构建产物演示
 
 ```bash
-cd frontend
 npm run build
 npm run preview
 # 打开终端里提示的地址（默认 http://localhost:4173）
@@ -145,29 +145,23 @@ npm run preview
 
 ```
 校园二手物品交易平台/
-├── frontend/                         # 纯前端工程
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── index.html
-│   ├── public/
-│   │   └── demo/                     # 演示图片（19 张商品图 + 头像），随构建产物发布
-│   └── src/
-│       ├── main.js                   # 应用入口（Pinia / Router / 请求封装 / 调试钩子）
-│       ├── App.vue                   # 根组件（全局提示、加载、导航）
-│       ├── api/request.js            # axios 统一封装 + 内置 Mock adapter
-│       ├── api/localStore.js         # 求购 / 校园圈本地数据层
-│       ├── mock/                     # 浏览器内置 Mock
-│       │   ├── index.js              # 请求分发：解析路径、参数、FormData、错误
-│       │   ├── routes.js             # 47 个接口与持久化状态
-│       │   ├── data.js               # 演示种子数据
-│       │   └── images.js             # public/demo 图片转 base64（带缓存）
-│       ├── stores/                   # Pinia：user.js、collect.js
-│       ├── router/index.js           # 13 条路由 + 登录守卫
-│       ├── pages/                    # 13 个页面
-│       ├── components/               # 19 个可复用组件
-│       └── styles/cl.css             # 设计系统
-│
-├── docs/                             # 交付物：报告、PPT、评审表、接口文档
+├── package.json                      # 根目录工程入口
+├── package-lock.json
+├── vite.config.js
+├── index.html
+├── public/                            # 演示图片与静态资源
+│   └── demo/
+├── src/                               # Vue 源码
+│   ├── main.js
+│   ├── App.vue
+│   ├── api/
+│   ├── mock/
+│   ├── stores/
+│   ├── router/
+│   ├── pages/
+│   ├── components/
+│   └── styles/
+├── docs/                              # 交付物：报告、PPT、评审表、接口文档
 └── README.md
 ```
 
